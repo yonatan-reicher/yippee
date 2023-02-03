@@ -6,8 +6,8 @@
   "permissions": [ "activeTab" ],
   "content_scripts": [
     {
-      "js": ["scripts/content.js"],
-      "matches": [ "*://*/*" ]
+      "matches": [ "*://*/*" ],
+      "js": ["libs/jquery-3.6.3.min.js", "src/content.js"]
     }
   ]
 }
