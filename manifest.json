@@ -1,13 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "Reading time",
+  "name": "Yippee!",
   "version": "1.0",
-  "description": "Add the reading time to Chrome Extension documentation articles",
-  "permissions": [ "activeTab" ],
+  "description": "For Shanina <3",
+  "permissions": [ "activeTab", "storage" ],
   "content_scripts": [
     {
-      "matches": [ "*://*/*" ],
-      "js": ["libs/jquery-3.6.3.min.js", "src/content.js"]
+      "matches": ["<all_urls>"],
+      "js": ["libs/jquery-3.6.3.min.js", "src/common.js", "src/content.js", "src/mvu.js"]
     }
-  ]
+  ],
+  "action": {
+    "default_popup": "src/popup.html"
+  },
+  "web_accessible_resources": [{
+    "resources": ["images/*.png"],
+    "matches": ["<all_urls>"]
+  }]
 }

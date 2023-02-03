@@ -1,14 +1,37 @@
-function clamp(x, a, b) {
-    return x < a ? a : x > b ? b : x;
-}
-
 function setFlipped(el, flip) {
     el.css({
         transform: `scale(${flip ? -1 : 1}, 1)`,
     })
 }
 
-function yippeeImg() {
+function init(model) {
+    model.yippee ??= {};
+    model.yippee.pos ??= { x: -20, y: 0 };
+    model.yippee.targetPos ??= { x: 0, y: 0 };
+    model.yippee.flipped ??= true;
+}
+
+const maxSpeed = 100;
+const wantedDistPx = 200;
+
+function update(model, { delta }) {
+    // const width = yippeeImg.width();
+    const height = yippeeImg.height();
+    
+    const diffX = model.yippee.targetPos.x - model.yippee.pos.x;
+    const diffY = model.yippee.targetPos.y - (model.yippee.pos.y + 0.5 * height);
+    const dist = Math.sqrt(diffX * diffX + diffY * diffY);
+    const targetAngle = Math.atan2(diffY, diffX);
+    
+    // Movement physics.
+    const wantedMove = Math.cos(targetAngle) * (dist - wantedDistPx);
+
+    // Update.
+    model.yippee.pos.x += clamp(wantedMove, -maxSpeed, maxSpeed) * delta;
+    model.yippee.flipped = diffX > 0;
+}
+
+const yippeeImg = (function () {
     const yippeeImg = document.createElement("img");
     yippeeImg.class = "yippee";
     yippeeImg.src = "https://media.tenor.com/dKfHDccWYT0AAAAi/tbh-creature-pixel-art.gif"
@@ -19,57 +42,20 @@ function yippeeImg() {
     yippeeImg.style.maxWidth = '15vw';
     yippeeImg.style.maxHeight = '25vh';
     yippeeImg.style.opacity = '0.9';
-    return $(yippeeImg);   
-}
+    return $(yippeeImg).appendTo('body');
+})();   
 
-const yippee = {
-    img: yippeeImg(),
-    x: 0,
-    y: 0,
-    targetX: 0,
-    targetY: 0,
-    width: 0,
-    height: 0,
-}
-
-// Always
-var prevTime = 0;
-function loop(time) {
-    // Normalize time to seconds.
-    time *= 0.001;
-
-    // Calculate delta time and cut off after half a second.
-    const delta = clamp(time - prevTime, 0, 0.5);
-
-    yippee.width = yippee.img.width();
-    yippee.height = yippee.img.height();
-        
-    const diffX = yippee.targetX - yippee.x;
-    const diffY = yippee.targetY - (yippee.y + 0.5 * yippee.height);
-    const dist = Math.sqrt(diffX * diffX + diffY * diffY);
-    const targetAngle = Math.atan2(diffY, diffX);
+function view(model) {
+    const width = yippeeImg.width();
+    // const height = yippeeImg.height();
     
-    // Movement physics.
-    const maxSpeed = 100;
-    const wantedDistPx = 200;
-    const wantedMove = Math.cos(targetAngle) * (dist - wantedDistPx);
-    yippee.x += clamp(wantedMove, -maxSpeed, maxSpeed) * delta;
-
-    // DOM.
-    yippee.img.css({ left: yippee.x - 0.5 * yippee.width + 'px' });
-    setFlipped(yippee.img, diffX > 0);
-
-    prevTime = time;
-    window.requestAnimationFrame(loop);
-};
-window.requestAnimationFrame(loop);
+    yippeeImg.css({ left: model.yippee.pos.x - 0.5 * width + 'px' });
+    setFlipped(yippeeImg, model.yippee.flipped);
+}
 
 // Set the target.
 $('body')
 .on('mousemove', (event) => {
-    yippee.targetX = event.clientX;
-    yippee.targetY = window.screenY - event.clientY;
+    model.yippee.targetPos.x = event.clientX;
+    model.yippee.targetPos.y = window.screenY - event.clientY;
 })
-.append(yippee.img);
-
-console.log("done!");
