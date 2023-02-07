@@ -3,18 +3,31 @@
   "name": "Yippee!",
   "version": "1.0",
   "description": "For Shanina <3",
-  "permissions": [ "activeTab", "storage" ],
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["libs/jquery-3.6.3.min.js", "src/common.js", "src/content.js", "src/mvu.js"]
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "src/common.js",
+        "build/elm.js",
+        "src/mvu.js"
+      ]
     }
   ],
-  "action": {
-    "default_popup": "src/popup.html"
-  },
-  "web_accessible_resources": [{
-    "resources": ["images/*.png"],
-    "matches": ["<all_urls>"]
-  }]
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "images/*.png",
+        "images/*.gif"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
 }
