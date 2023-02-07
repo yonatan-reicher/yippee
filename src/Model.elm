@@ -1,36 +1,34 @@
-module Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee)
+module Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee, encodeApple, encodeState, encodeVec, initialState)
+
+import Json.Encode as E
 
 
 type alias Flags =
-    Model1 (Maybe State)
-
-
-type alias Model1 state =
-    { state : state
+    { maybeState : Maybe (State {})
     , resources : Resources
+    , windowSize : Vec
     }
 
 
 type alias Model =
-    Model1 State
+    State { resources : Resources, windowSize : Vec }
 
 
-type alias State =
-    { yippee : Yippee
-    , apples : List Apple
-    }
+type alias State a =
+    Yippee { a | apples : List Apple }
 
 
-type alias Yippee =
-    { pos : Vec
-    , targetPos : Vec
-    , flipped : Bool
+type alias Yippee a =
+    { a
+        | pos : Vec
+        , targetPos : Vec
+        , flipped : Bool
     }
 
 
 type alias Apple =
     { pos : Vec
-    , rol : Float
+    , roll : Float
     , rotation : Float
     }
 
@@ -43,3 +41,36 @@ type alias Resources =
 
 type alias Vec =
     { x : Float, y : Float }
+
+
+encodeState : State a -> E.Value
+encodeState { pos, targetPos, flipped, apples } =
+    E.object
+        [ ( "pos", encodeVec pos )
+        , ( "targetPos", encodeVec targetPos )
+        , ( "flipped", E.bool flipped )
+        , ( "apples", E.list encodeApple apples )
+        ]
+
+
+encodeApple : Apple -> E.Value
+encodeApple { pos, roll, rotation } =
+    E.object
+        [ ( "pos", encodeVec pos )
+        , ( "roll", E.float roll )
+        , ( "rotation", E.float rotation )
+        ]
+
+
+encodeVec : Vec -> E.Value
+encodeVec { x, y } =
+    E.object [ ( "x", E.float x ), ( "y", E.float y ) ]
+
+
+initialState : State {}
+initialState =
+    { pos = { x = 0, y = 0 }
+    , targetPos = { x = 200, y = 0 }
+    , flipped = True
+    , apples = []
+    }

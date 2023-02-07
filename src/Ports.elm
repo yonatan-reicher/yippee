@@ -1,12 +1,18 @@
-port module Ports exposing (..)
+port module Ports exposing (frame, mouseMove, requestSave, saveDone)
 
-import Model exposing (State, Vec)
+import Json.Encode as E
+import Model exposing (State, Vec, encodeState)
 
 
 port frame : ({ delta : Float, time : Float } -> a) -> Sub a
 
 
-port requestSave : State -> Cmd a
+requestSave : State a -> Cmd msg
+requestSave =
+    requestSave1 << encodeState
+
+
+port requestSave1 : E.Value -> Cmd msg
 
 
 port saveDone : (() -> a) -> Sub a

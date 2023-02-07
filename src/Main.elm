@@ -6,8 +6,9 @@ import Html
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
+import Json.Decode as D
 import Math.Vector2 as Vec2 exposing (Vec2)
-import Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee)
+import Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee, initialState)
 import Ports
 
 
@@ -15,6 +16,7 @@ type Msg
     = Frame { delta : Float, time : Float }
     | SaveDone
     | MouseMove Vec
+    | AddApple Vec
 
 
 main : Program Flags Model Msg
@@ -28,21 +30,17 @@ main =
 
 
 init : Flags -> ( Model, Cmd Msg )
-init flags =
+init { maybeState, resources, windowSize } =
     let
-        state =
-            flags.state
-                |> Maybe.withDefault
-                    { yippee =
-                        { pos = { x = 0, y = 0 }
-                        , targetPos = { x = 0, y = 0 }
-                        , flipped = True
-                        }
-                    , apples = []
-                    }
+        { pos, targetPos, flipped, apples } =
+            maybeState |> Maybe.withDefault initialState
     in
-    ( { resources = flags.resources
-      , state = state
+    ( { pos = pos
+      , targetPos = targetPos
+      , flipped = flipped
+      , apples = apples
+      , resources = resources
+      , windowSize = windowSize
       }
     , Cmd.none
     )
@@ -52,42 +50,29 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Frame data ->
-            let
-                ( state, cmd ) =
-                    frame data model.state
-            in
-            ( { model | state = state }, cmd )
+            frame data model
 
         MouseMove mousePos ->
             let
-                state =
-                    model.state
-
-                yippee =
-                    state.yippee
-
                 targetPos =
-                    case List.head model.state.apples of
+                    case List.head model.apples of
                         Just apple ->
                             apple.pos
 
                         Nothing ->
                             mousePos
-
-                yippee1 =
-                    { yippee | targetPos = targetPos }
-
-                state1 =
-                    { state | yippee = yippee1 }
             in
-            ( { model | state = state1 }, Cmd.none )
+            ( { model | targetPos = targetPos }, Cmd.none )
+
+        AddApple pos ->
+            addApple pos model
 
         SaveDone ->
             ( model, Cmd.none )
 
 
-frame : { a | delta : Float } -> State -> ( State, Cmd Msg )
-frame { delta } { yippee, apples } =
+frame : { a | delta : Float } -> State s -> ( State s, Cmd Msg )
+frame { delta } state =
     let
         height =
             100
@@ -99,9 +84,8 @@ frame { delta } { yippee, apples } =
             100
     in
     let
-        -- TODO: Add half height to y
         diff =
-            Vec2.sub (Vec2.fromRecord yippee.targetPos) (Vec2.fromRecord yippee.pos)
+            Vec2.sub (vec2 state.targetPos) (Vec2.add (vec2 state.pos) (up2 <| 0.5 * height))
 
         dist =
             Vec2.length diff
@@ -113,21 +97,26 @@ frame { delta } { yippee, apples } =
             cos targetAngle * (dist - wantedDist)
 
         pos =
-            { y = yippee.pos.y, x = yippee.pos.x + delta * clamp -maxSpeed maxSpeed wantedMove }
+            { y = state.pos.y, x = state.pos.x + delta * clamp -maxSpeed maxSpeed wantedMove }
 
-        yippee1 =
-            { yippee | pos = pos, flipped = Vec2.getX diff > 0 }
+        state1 =
+            { state | pos = pos, flipped = Vec2.getX diff > 0 }
     in
-    let
-        state =
-            { yippee = yippee1, apples = List.filter (\a -> not <| appleEaten yippee a) apples }
-    in
-    ( state, Ports.requestSave state )
+    ( state1, Ports.requestSave state )
 
 
-appleEaten : Yippee -> Apple -> Bool
+appleEaten : Yippee a -> Apple -> Bool
 appleEaten yippee { pos } =
     Debug.log "dist" (Vec2.distanceSquared (vec2 yippee.pos) (vec2 pos)) < 100 * 100
+
+
+addApple : Vec -> State a -> ( State a, Cmd Msg )
+addApple pos state =
+    let
+        apple =
+            { pos = pos, rotation = 0, roll = 0 }
+    in
+    ( { state | apples = apple :: state.apples }, Cmd.none )
 
 
 clamp : Float -> Float -> Float -> Float
@@ -146,15 +135,21 @@ vec2 =
     Vec2.fromRecord
 
 
+up2 y =
+    vec2 { x = 0, y = y }
+
+
 view : Model -> Html Msg
 view model =
     div []
-        ([ viewYippee model.resources model.state.yippee ]
-            ++ List.map (viewApple model.resources) model.state.apples
+        ([ viewYippee model.resources model
+         , viewAppleButton model
+         ]
+            ++ List.map (viewApple model.resources) model.apples
         )
 
 
-viewYippee : Resources -> Yippee -> Html Msg
+viewYippee : Resources -> Yippee a -> Html Msg
 viewYippee resources { pos, flipped } =
     let
         xScale =
@@ -167,6 +162,7 @@ viewYippee resources { pos, flipped } =
     img
         [ src resources.yippeeUrl
         , screenPosition pos
+        , front
         , css
             [ all unset
             , Css.width (px 100)
@@ -185,6 +181,7 @@ viewApple { appleUrl } { pos, rotation } =
     img
         [ src appleUrl
         , screenPosition pos
+        , front
         , css
             [ transforms
                 [ centerX
@@ -196,6 +193,30 @@ viewApple { appleUrl } { pos, rotation } =
         []
 
 
+viewAppleButton : Model -> Html Msg
+viewAppleButton { resources, windowSize } =
+    div
+        [ front
+        , css
+            [ border3 (px 2) solid black
+            , position fixed
+            , bottom (px 0)
+            , right (px 0)
+            , padding (px 8)
+            , backgroundColor white
+            , opacity (num 0.9)
+            ]
+        ]
+        [ img
+            [ src resources.appleUrl
+            , draggable "true"
+            , on "dragend" (decodeEventPos windowSize |> D.map (Debug.log "value") |> D.map AddApple)
+            , css [ Css.width (px 40) ]
+            ]
+            []
+        ]
+
+
 screenPosition : Vec -> Attribute a
 screenPosition { x, y } =
     css
@@ -205,13 +226,29 @@ screenPosition { x, y } =
         ]
 
 
+decodeEventPos : Vec -> D.Decoder Vec
+decodeEventPos windowSize =
+    D.map2 Vec
+        (D.field "clientX" D.float)
+        (D.field "clientY" D.float
+            |> D.map (\y -> windowSize.y - y)
+        )
+
+
+black =
+    rgb 0 0 0
+
+
+white =
+    rgb 255 255 255
+
+
 centerX =
     translateX (pct -50)
 
 
-emptyAttr : Attribute a
-emptyAttr =
-    css []
+front =
+    css [ zIndex (int 10000) ]
 
 
 subscriptions : Model -> Sub Msg

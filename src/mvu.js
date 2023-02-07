@@ -8,18 +8,31 @@ body.append(node);
 chrome.storage.local.get(modelKey)
   .then(res => res[modelKey])
   .catch(_ => null)
-  .then(state => {
-    const flags = {
-      state,
-      resources: {
-        yippeeUrl: chrome.runtime.getURL("images/yippee.gif"),
-        appleUrl: chrome.runtime.getURL("images/apple.png"),
-      },
+  .then(maybeState => {
+    const resources = {
+      yippeeUrl: chrome.runtime.getURL("images/yippee.gif"),
+      appleUrl: chrome.runtime.getURL("images/apple.png"),
     }
-    const elm = Elm.Main.init({
-      flags,
-      node,
-    })
+    const windowSize = { x: window.innerWidth, y: window.innerHeight }
+    const flags = {
+      maybeState,
+      resources,
+      windowSize,
+    }
+
+    var elm;
+    try {
+      elm = Elm.Main.init({
+        flags,
+        node,
+      })
+    } catch {
+      flags.maybeState = null;
+      elm = Elm.Main.init({
+        flags,
+        node,
+      })
+    }
 
     var prevTime = new Date().getTime() * 0.001;
     function loop(time) {
@@ -37,7 +50,7 @@ chrome.storage.local.get(modelKey)
     // Start the loop.
     window.requestAnimationFrame(loop);
 
-    elm.ports.requestSave.subscribe(model => {
+    elm.ports.requestSave1.subscribe(model => {
       chrome.storage.local.set({ [modelKey]: model })
         .then(_ => elm.ports.saveDone.send(null))
     })
