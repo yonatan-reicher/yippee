@@ -15,7 +15,7 @@ type alias Model =
 
 
 type alias State a =
-    Yippee { a | apples : List Apple }
+    Yippee { a | mousePos : Vec,  apples : List Apple }
 
 
 type alias Yippee a =
@@ -28,7 +28,8 @@ type alias Yippee a =
 
 type alias Apple =
     { pos : Vec
-    , roll : Float
+    , velocity : Float
+    , roll : Float -- The amount of radians to roll per second.
     , rotation : Float
     }
 
@@ -54,9 +55,10 @@ encodeState { pos, targetPos, flipped, apples } =
 
 
 encodeApple : Apple -> E.Value
-encodeApple { pos, roll, rotation } =
+encodeApple { pos, roll, rotation, velocity } =
     E.object
         [ ( "pos", encodeVec pos )
+        , ( "velocity", E.float velocity ) 
         , ( "roll", E.float roll )
         , ( "rotation", E.float rotation )
         ]
@@ -71,6 +73,7 @@ initialState : State {}
 initialState =
     { pos = { x = 0, y = 0 }
     , targetPos = { x = 200, y = 0 }
+    , mousePos = { x = 200, y = 0 }
     , flipped = True
     , apples = []
     }
