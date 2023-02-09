@@ -115,15 +115,8 @@ particleAt : Float -> Float -> Generator (Particle Confetti)
 particleAt x y =
     Particle.init genConfetti
         |> Particle.withLifetime (normal 1.5 0.25)
-        -- |> Particle.withDelay (normal 0 0.1)
         |> Particle.withLocation (Random.constant { x = x, y = y })
-        -- our direction is determined by the angle of the party popper cone
-        -- (about 47°) as well as it's width (about 60°). We use a normal
-        -- distribution here so that most of the confetti will come out in the
-        -- same place, with falloff to the sides. We want most of the confetti
-        -- to show up in the center 30°, so the standard deviation of the
-        -- distribution should be 15°.
-        |> Particle.withDirection (normal (degrees 47) (degrees 15))
+        |> Particle.withDirection (normal (degrees 0) (degrees 15))
         |> Particle.withSpeed (normal 600 100)
         |> Particle.withGravity 980
         |> Particle.withDrag

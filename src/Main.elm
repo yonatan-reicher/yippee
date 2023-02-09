@@ -13,6 +13,7 @@ import Math.Vector2 as Vec2 exposing (Vec2)
 import Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee, initialState)
 import Ports
 import Random
+import Delay
 
 
 type Msg
@@ -24,6 +25,7 @@ type Msg
     | WindowResize Int Int
     | YippeeClicked
     | ConfettiMsg Confetti.Msg
+    | SpawnConfetti
 
 
 type alias FrameData a =
@@ -82,14 +84,18 @@ update msg model =
             ( model, Cmd.none )
 
         YippeeClicked ->
+            ( model, Cmd.batch
+                [ Ports.playSound model.resources.yippeeSoundUrl
+                , Delay.after 500 SpawnConfetti
+                ]
+            )
+
+        SpawnConfetti ->
             let
                 cmsg =
-                    Confetti.TriggerBurst model.mousePos.x (model.windowSize.y - model.mousePos.y)
-
-                ( newModel, cmd ) =
-                    update (ConfettiMsg cmsg) model
+                    Confetti.TriggerBurst model.pos.x (model.windowSize.y - model.pos.y)
             in
-            ( newModel, Cmd.batch [ Ports.playSound model.resources.yippeeSoundUrl, cmd ] )
+            update (ConfettiMsg cmsg) model
 
         ConfettiMsg cmsg ->
             let
