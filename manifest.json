@@ -22,8 +22,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "images/*.png",
-        "images/*.gif"
+        "resources/*"
       ],
       "matches": [
         "<all_urls>"

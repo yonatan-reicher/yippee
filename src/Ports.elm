@@ -1,4 +1,4 @@
-port module Ports exposing (frame, mouseMove, requestSave, saveDone)
+port module Ports exposing (frame, mouseMove, requestSave, saveDone, playSound)
 
 import Json.Encode as E
 import Model exposing (State, Vec, encodeState)
@@ -19,3 +19,6 @@ port saveDone : (() -> a) -> Sub a
 
 
 port mouseMove : (Vec -> a) -> Sub a
+
+
+port playSound : String -> Cmd a

@@ -1,5 +1,6 @@
 module Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee, encodeApple, encodeState, encodeVec, initialState)
 
+import Confetti
 import Json.Encode as E
 
 
@@ -11,17 +12,26 @@ type alias Flags =
 
 
 type alias Model =
-    State { resources : Resources, windowSize : Vec }
+    State
+        { resources : Resources
+        , windowSize : Vec
+        , confetti : Confetti.Model
+        }
 
 
 type alias State a =
-    Yippee { a | mousePos : Vec,  apples : List Apple }
+    Yippee
+        { a
+            | mousePos : Vec
+            , apples : List Apple
+        }
 
 
 type alias Yippee a =
     { a
         | pos : Vec
         , targetPos : Vec
+        , focusPos : Vec
         , flipped : Bool
     }
 
@@ -37,6 +47,7 @@ type alias Apple =
 type alias Resources =
     { yippeeUrl : String
     , appleUrl : String
+    , yippeeSoundUrl : String
     }
 
 
@@ -45,10 +56,12 @@ type alias Vec =
 
 
 encodeState : State a -> E.Value
-encodeState { pos, targetPos, flipped, apples } =
+encodeState { pos, targetPos, flipped, apples, mousePos, focusPos } =
     E.object
         [ ( "pos", encodeVec pos )
         , ( "targetPos", encodeVec targetPos )
+        , ( "focusPos", encodeVec focusPos )
+        , ( "mousePos", encodeVec mousePos )
         , ( "flipped", E.bool flipped )
         , ( "apples", E.list encodeApple apples )
         ]
@@ -58,7 +71,7 @@ encodeApple : Apple -> E.Value
 encodeApple { pos, roll, rotation, velocity } =
     E.object
         [ ( "pos", encodeVec pos )
-        , ( "velocity", E.float velocity ) 
+        , ( "velocity", E.float velocity )
         , ( "roll", E.float roll )
         , ( "rotation", E.float rotation )
         ]
@@ -73,6 +86,7 @@ initialState : State {}
 initialState =
     { pos = { x = 0, y = 0 }
     , targetPos = { x = 200, y = 0 }
+    , focusPos = { x = 200, y = 0 }
     , mousePos = { x = 200, y = 0 }
     , flipped = True
     , apples = []

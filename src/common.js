@@ -5,7 +5,7 @@ function clamp(x, a, b) {
 function eventPos(event) {
   return {
     x: event.clientX,
-    y: window.screenY - event.clientY,
+    y: window.innerHeight - event.clientY,
   }
 }
 

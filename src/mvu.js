@@ -10,8 +10,9 @@ chrome.storage.local.get(modelKey)
   .catch(_ => null)
   .then(maybeState => {
     const resources = {
-      yippeeUrl: chrome.runtime.getURL("images/yippee.gif"),
-      appleUrl: chrome.runtime.getURL("images/apple.png"),
+      yippeeUrl: chrome.runtime.getURL("resources/yippee.gif"),
+      appleUrl: chrome.runtime.getURL("resources/apple.png"),
+      yippeeSoundUrl: chrome.runtime.getURL("resources/yippee.mp4"),
     }
     const windowSize = { x: window.innerWidth, y: window.innerHeight }
     const flags = {
@@ -58,5 +59,9 @@ chrome.storage.local.get(modelKey)
     body.addEventListener('mousemove', event => {
       elm.ports.mouseMove.send(eventPos(event))
     })
+
+    const sounds = {};
+    sounds[chrome.runtime.getURL("resources/yippee.mp4")] = new Audio(chrome.runtime.getURL("resources/yippee.mp4"));
+    elm.ports.playSound.subscribe(url => sounds[url].play());
   })
 
