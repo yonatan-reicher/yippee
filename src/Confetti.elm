@@ -117,7 +117,7 @@ particleAt x y =
         |> Particle.withLifetime (normal 1.5 0.25)
         |> Particle.withLocation (Random.constant { x = x, y = y })
         |> Particle.withDirection (normal (degrees 0) (degrees 15))
-        |> Particle.withSpeed (normal 600 100)
+        |> Particle.withSpeed (normal 750 150)
         |> Particle.withGravity 980
         |> Particle.withDrag
             (\confetti ->

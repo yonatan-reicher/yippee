@@ -4,6 +4,7 @@ import Browser
 import Browser.Events exposing (onResize)
 import Confetti
 import Css exposing (..)
+import Delay
 import Html
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
@@ -13,7 +14,7 @@ import Math.Vector2 as Vec2 exposing (Vec2)
 import Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee, initialState)
 import Ports
 import Random
-import Delay
+import Random.Float
 
 
 type Msg
@@ -26,6 +27,8 @@ type Msg
     | YippeeClicked
     | ConfettiMsg Confetti.Msg
     | SpawnConfetti
+    | AudioFinished String
+    | IncreaseHappiness Float
 
 
 type alias FrameData a =
@@ -45,7 +48,7 @@ main =
 init : Flags -> ( Model, Cmd Msg )
 init { maybeState, resources, windowSize } =
     let
-        { pos, targetPos, flipped, apples, mousePos, focusPos } =
+        { pos, targetPos, flipped, apples, mousePos, focusPos, happiness, jump } =
             maybeState |> Maybe.withDefault initialState
     in
     ( { pos = pos
@@ -56,7 +59,10 @@ init { maybeState, resources, windowSize } =
       , apples = apples
       , resources = resources
       , windowSize = windowSize
+      , happiness = happiness
+      , jump = jump
       , confetti = Confetti.init
+      , sounds = []
       }
     , Cmd.none
     )
@@ -84,10 +90,8 @@ update msg model =
             ( model, Cmd.none )
 
         YippeeClicked ->
-            ( model, Cmd.batch
-                [ Ports.playSound model.resources.yippeeSoundUrl
-                , Delay.after 500 SpawnConfetti
-                ]
+            ( { model | sounds = model.resources.yippeeSoundUrl :: model.sounds }
+            , Delay.after 500 SpawnConfetti
             )
 
         SpawnConfetti ->
@@ -104,20 +108,34 @@ update msg model =
             in
             ( { model | confetti = confetti }, cmd |> Cmd.map ConfettiMsg )
 
+        AudioFinished url ->
+            ( { model | sounds = List.filter ((/=) url) model.sounds }, Cmd.none )
+
+        IncreaseHappiness value ->
+            { model | happiness = model.happiness + value }
+            |> yippeeMood
+
 
 frame : FrameData a -> State s -> ( State s, Cmd Msg )
 frame frameData oldState =
     let
-        newState =
+        ( newState, cmd ) =
             frameYippee frameData oldState
                 |> frameApples frameData
     in
-    ( newState, Ports.requestSave newState )
+    ( newState, Cmd.batch [ cmd, Ports.requestSave newState ] )
 
 
-frameApples : FrameData f -> State s -> State s
+frameApples : FrameData f -> State s -> ( State s, Cmd Msg )
 frameApples frameData state =
-    { state | apples = List.filterMap (frameApple frameData state) state.apples }
+    let apples = List.filterMap (frameApple frameData state) state.apples
+        eaten = List.length state.apples - List.length apples |> Basics.max 0
+    in
+    ( { state
+      | apples = List.filterMap (frameApple frameData state) state.apples
+      }
+    , Cmd.batch <| List.repeat eaten (Random.generate IncreaseHappiness (Random.Float.normal 1 0.2))
+    )
 
 
 frameYippee : FrameData f -> State y -> State y
@@ -141,20 +159,32 @@ frameYippee { delta } state =
 
         pos =
             { y = state.pos.y, x = state.pos.x + delta * clamp -maxSpeed maxSpeed wantedMove }
+
+        jump = state.jump - delta |> Basics.max 0
     in
-    { state | pos = pos, flipped = focusPos.x > pos.x, targetPos = targetPos, focusPos = focusPos }
+    { state | pos = pos, flipped = focusPos.x > pos.x, targetPos = targetPos, focusPos = focusPos, jump = jump }
+
+
+yippeeMood : Yippee y -> (Yippee y, Cmd Msg)
+yippeeMood yippee =
+    if yippee.happiness < 10 then
+        (yippee, Cmd.none)
+    else
+        ({ yippee | happiness = 0 } |> jumpYippee, Cmd.none)
+
+
+jumpYippee : Yippee y -> Yippee y
+jumpYippee yippee = { yippee | jump = 1 } |> Debug.log "jump!"
 
 
 frameApple : FrameData a -> State s -> Apple -> Maybe Apple
 frameApple { delta } state apple =
+    let radius = 20 in
     if appleEaten state apple then
         Nothing
 
     else
         let
-            radius =
-                20
-
             x =
                 apple.pos.x + delta * apple.roll * radius
 
@@ -162,7 +192,10 @@ frameApple { delta } state apple =
                 apple.pos.y + velocity * delta |> Basics.max 0
 
             velocity =
-                apple.velocity - 1000 * delta
+                if apple.pos.y > 0 then
+                    apple.velocity - 1000 * delta
+                else
+                    abs apple.velocity - 800 |> Basics.max 0
 
             pos =
                 { x = x, y = y }
@@ -223,6 +256,7 @@ clamp a b x =
         x
 
 
+sign : number -> number
 sign x =
     if x < 0 then
         -1
@@ -231,18 +265,22 @@ sign x =
         1
 
 
+vec2 : Vec -> Vec2
 vec2 =
     Vec2.fromRecord
 
 
+vec : Vec2 -> Vec
 vec =
     Vec2.toRecord
 
 
+up2 : Float -> Vec2
 up2 y =
     vec2 { x = 0, y = y }
 
 
+right2 : Float -> Vec2
 right2 x =
     vec2 { x = x, y = 0 }
 
@@ -255,11 +293,12 @@ view model =
          , Confetti.view model.confetti |> Html.map ConfettiMsg |> Html.Styled.fromUnstyled
          ]
             ++ List.map (viewApple model.resources) model.apples
+            ++ List.map viewSound model.sounds
         )
 
 
 viewYippee : Resources -> Yippee a -> Html Msg
-viewYippee resources { pos, flipped } =
+viewYippee resources { pos, flipped, jump } =
     let
         xScale =
             if flipped then
@@ -270,7 +309,7 @@ viewYippee resources { pos, flipped } =
     in
     img
         [ src resources.yippeeUrl
-        , screenPosition pos
+        , screenPosition { x = pos.x, y = pos.y + 200 * (1 - (2 * jump - 1)^2 |> Basics.max 0) }
         , noDrag
         , front
         , onClick YippeeClicked
@@ -281,6 +320,7 @@ viewYippee resources { pos, flipped } =
             , transforms
                 [ centerX
                 , scaleX xScale
+                , rotate (deg <| jump * 360)
                 ]
             ]
         ]
@@ -326,6 +366,11 @@ viewAppleButton { resources, windowSize } =
             ]
             []
         ]
+
+
+viewSound : String -> Html Msg
+viewSound url =
+    audio [ src url, autoplay True, on "ended" (D.succeed <| AudioFinished url) ] []
 
 
 screenPosition : Vec -> Attribute a

@@ -16,6 +16,7 @@ type alias Model =
         { resources : Resources
         , windowSize : Vec
         , confetti : Confetti.Model
+        , sounds : List String
         }
 
 
@@ -33,6 +34,8 @@ type alias Yippee a =
         , targetPos : Vec
         , focusPos : Vec
         , flipped : Bool
+        , happiness : Float
+        , jump : Float
     }
 
 
@@ -56,7 +59,7 @@ type alias Vec =
 
 
 encodeState : State a -> E.Value
-encodeState { pos, targetPos, flipped, apples, mousePos, focusPos } =
+encodeState { pos, targetPos, flipped, apples, mousePos, focusPos, happiness, jump } =
     E.object
         [ ( "pos", encodeVec pos )
         , ( "targetPos", encodeVec targetPos )
@@ -64,6 +67,8 @@ encodeState { pos, targetPos, flipped, apples, mousePos, focusPos } =
         , ( "mousePos", encodeVec mousePos )
         , ( "flipped", E.bool flipped )
         , ( "apples", E.list encodeApple apples )
+        , ( "happiness", E.float happiness )
+        , ( "jump", E.float jump )
         ]
 
 
@@ -88,6 +93,8 @@ initialState =
     , targetPos = { x = 200, y = 0 }
     , focusPos = { x = 200, y = 0 }
     , mousePos = { x = 200, y = 0 }
+    , happiness = 0
     , flipped = True
     , apples = []
+    , jump = 0
     }

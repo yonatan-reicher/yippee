@@ -60,8 +60,5 @@ chrome.storage.local.get(modelKey)
       elm.ports.mouseMove.send(eventPos(event))
     })
 
-    const sounds = {};
-    sounds[chrome.runtime.getURL("resources/yippee.mp4")] = new Audio(chrome.runtime.getURL("resources/yippee.mp4"));
-    elm.ports.playSound.subscribe(url => sounds[url].play());
   })
 
