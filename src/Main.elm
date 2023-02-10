@@ -4,6 +4,7 @@ import Browser
 import Browser.Events exposing (onResize)
 import Confetti
 import Css exposing (..)
+import Css.Transitions exposing (easeInOut, transition)
 import Delay
 import Html
 import Html.Styled exposing (..)
@@ -90,9 +91,7 @@ update msg model =
             ( model, Cmd.none )
 
         YippeeClicked ->
-            ( { model | sounds = model.resources.yippeeSoundUrl :: model.sounds }
-            , Delay.after 500 SpawnConfetti
-            )
+            ( jumpYippee model, Cmd.none )
 
         SpawnConfetti ->
             let
@@ -113,7 +112,7 @@ update msg model =
 
         IncreaseHappiness value ->
             { model | happiness = model.happiness + value }
-            |> yippeeMood
+                |> yippeeMood
 
 
 frame : FrameData a -> State s -> ( State s, Cmd Msg )
@@ -128,11 +127,15 @@ frame frameData oldState =
 
 frameApples : FrameData f -> State s -> ( State s, Cmd Msg )
 frameApples frameData state =
-    let apples = List.filterMap (frameApple frameData state) state.apples
-        eaten = List.length state.apples - List.length apples |> Basics.max 0
+    let
+        apples =
+            List.filterMap (frameApple frameData state) state.apples
+
+        eaten =
+            List.length state.apples - List.length apples |> Basics.max 0
     in
     ( { state
-      | apples = List.filterMap (frameApple frameData state) state.apples
+        | apples = List.filterMap (frameApple frameData state) state.apples
       }
     , Cmd.batch <| List.repeat eaten (Random.generate IncreaseHappiness (Random.Float.normal 1 0.2))
     )
@@ -160,40 +163,61 @@ frameYippee { delta } state =
         pos =
             { y = state.pos.y, x = state.pos.x + delta * clamp -maxSpeed maxSpeed wantedMove }
 
-        jump = state.jump - delta |> Basics.max 0
+        jump =
+            state.jump - delta |> Basics.max 0
+
+        flipped =
+            if jump == 0 then
+                focusPos.x > pos.x
+
+            else
+                state.flipped
     in
-    { state | pos = pos, flipped = focusPos.x > pos.x, targetPos = targetPos, focusPos = focusPos, jump = jump }
+    { state | pos = pos, flipped = flipped, targetPos = targetPos, focusPos = focusPos, jump = jump }
 
 
-yippeeMood : Yippee y -> (Yippee y, Cmd Msg)
+yippeeMood : Model -> ( Model, Cmd Msg )
 yippeeMood yippee =
-    if yippee.happiness < 10 then
-        (yippee, Cmd.none)
+    if yippee.happiness < 7 then
+        ( yippee, Cmd.none )
+
     else
-        ({ yippee | happiness = 0 } |> jumpYippee, Cmd.none)
+        { yippee | happiness = 0 } |> yippeeScream
 
 
 jumpYippee : Yippee y -> Yippee y
-jumpYippee yippee = { yippee | jump = 1 } |> Debug.log "jump!"
+jumpYippee yippee =
+    { yippee | jump = 1 } |> Debug.log "jump!"
+
+
+yippeeScream : Model -> ( Model, Cmd Msg )
+yippeeScream model =
+    ( { model | sounds = model.resources.yippeeSoundUrl :: model.sounds }
+    , Delay.after 500 SpawnConfetti
+    )
 
 
 frameApple : FrameData a -> State s -> Apple -> Maybe Apple
 frameApple { delta } state apple =
-    let radius = 20 in
+    let
+        radius =
+            20
+    in
     if appleEaten state apple then
         Nothing
 
     else
         let
-            x =
-                apple.pos.x + delta * apple.roll * radius
-
             y =
                 apple.pos.y + velocity * delta |> Basics.max 0
+
+            x =
+                apple.pos.x + delta * apple.roll * radius
 
             velocity =
                 if apple.pos.y > 0 then
                     apple.velocity - 1000 * delta
+
                 else
                     abs apple.velocity - 800 |> Basics.max 0
 
@@ -204,7 +228,11 @@ frameApple { delta } state apple =
                 apple.rotation + delta * apple.roll
 
             roll =
-                apple.roll - (delta * 0.5 |> clamp -(abs apple.roll) (abs apple.roll)) * sign apple.roll
+                if y == 0 then
+                    apple.roll - (delta * 0.5 |> clamp -(abs apple.roll) (abs apple.roll)) * sign apple.roll
+
+                else
+                    apple.roll
         in
         Just { pos = pos, rotation = rotation, roll = roll, velocity = velocity }
 
@@ -309,7 +337,7 @@ viewYippee resources { pos, flipped, jump } =
     in
     img
         [ src resources.yippeeUrl
-        , screenPosition { x = pos.x, y = pos.y + 200 * (1 - (2 * jump - 1)^2 |> Basics.max 0) }
+        , screenPosition { x = pos.x, y = pos.y + 200 * (1 - (2 * jump - 1) ^ 2 |> Basics.max 0) }
         , noDrag
         , front
         , onClick YippeeClicked
@@ -317,10 +345,11 @@ viewYippee resources { pos, flipped, jump } =
             [ all unset
             , Css.width (px 100)
             , opacity (num 90)
+            , if jump == 0 then transition [ Css.Transitions.transform3 200 0 easeInOut ] else Css.batch []
             , transforms
                 [ centerX
                 , scaleX xScale
-                , rotate (deg <| jump * 360)
+                , rotate (deg <| -jump * 360)
                 ]
             ]
         ]
