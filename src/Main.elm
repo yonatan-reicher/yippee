@@ -5,7 +5,6 @@ import Browser.Events exposing (onResize)
 import Confetti
 import Css exposing (..)
 import Css.Transitions exposing (easeInOut, transition)
-import Delay
 import Html
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
@@ -14,8 +13,10 @@ import Json.Decode as D
 import Math.Vector2 as Vec2 exposing (Vec2)
 import Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee, initialState)
 import Ports
+import Process exposing (sleep)
 import Random
 import Random.Float
+import Task
 
 
 type Msg
@@ -30,6 +31,8 @@ type Msg
     | SpawnConfetti
     | AudioFinished String
     | IncreaseHappiness Float
+    | YippeeScream
+    | Delayed Msg Float
 
 
 type alias FrameData a =
@@ -114,6 +117,12 @@ update msg model =
             { model | happiness = model.happiness + value }
                 |> yippeeMood
 
+        YippeeScream ->
+            yippeeScream model
+
+        Delayed cont seconds ->
+            ( model, delay seconds cont )
+
 
 frame : FrameData a -> State s -> ( State s, Cmd Msg )
 frame frameData oldState =
@@ -182,18 +191,20 @@ yippeeMood yippee =
         ( yippee, Cmd.none )
 
     else
-        { yippee | happiness = 0 } |> yippeeScream
+        ( { yippee | happiness = 0 }
+        , Random.generate (Delayed YippeeScream) (Random.Float.normal 0.5 0.2)
+        )
 
 
 jumpYippee : Yippee y -> Yippee y
 jumpYippee yippee =
-    { yippee | jump = 1 } |> Debug.log "jump!"
+    { yippee | jump = 1 }
 
 
 yippeeScream : Model -> ( Model, Cmd Msg )
 yippeeScream model =
     ( { model | sounds = model.resources.yippeeSoundUrl :: model.sounds }
-    , Delay.after 500 SpawnConfetti
+    , delay 500 SpawnConfetti
     )
 
 
@@ -313,6 +324,11 @@ right2 x =
     vec2 { x = x, y = 0 }
 
 
+delay : Float -> msg -> Cmd msg
+delay seconds msg =
+    sleep (seconds * 1000) |> Task.perform (always msg)
+
+
 view : Model -> Html Msg
 view model =
     div []
@@ -345,7 +361,11 @@ viewYippee resources { pos, flipped, jump } =
             [ all unset
             , Css.width (px 100)
             , opacity (num 90)
-            , if jump == 0 then transition [ Css.Transitions.transform3 200 0 easeInOut ] else Css.batch []
+            , if jump == 0 then
+                transition [ Css.Transitions.transform3 200 0 easeInOut ]
+
+              else
+                Css.batch []
             , transforms
                 [ centerX
                 , scaleX xScale

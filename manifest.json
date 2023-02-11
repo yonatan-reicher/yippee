@@ -3,6 +3,11 @@
   "name": "Yippee!",
   "version": "1.0",
   "description": "For Shanina <3",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "yippee@shanina"
+    }
+  },
   "permissions": [
     "activeTab",
     "storage"
