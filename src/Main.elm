@@ -14,7 +14,7 @@ import Math.Vector2 as Vec2 exposing (Vec2)
 import Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee, initialState)
 import Ports
 import Process exposing (sleep)
-import Random
+import Random exposing (generate)
 import Random.Float
 import Task
 
@@ -33,6 +33,7 @@ type Msg
     | IncreaseHappiness Float
     | YippeeScream
     | Delayed Msg Float
+    | FullscreenChange Bool
 
 
 type alias FrameData a =
@@ -50,7 +51,7 @@ main =
 
 
 init : Flags -> ( Model, Cmd Msg )
-init { maybeState, resources, windowSize } =
+init { maybeState, resources, windowSize, url } =
     let
         { pos, targetPos, flipped, apples, mousePos, focusPos, happiness, jump } =
             maybeState |> Maybe.withDefault initialState
@@ -67,6 +68,8 @@ init { maybeState, resources, windowSize } =
       , jump = jump
       , confetti = Confetti.init
       , sounds = []
+      , url = url
+      , fullscreen = False
       }
     , Cmd.none
     )
@@ -77,6 +80,9 @@ update msg model =
     case msg of
         Frame data ->
             frame data model
+
+        FullscreenChange fullscreen ->
+            ( { model | fullscreen = fullscreen }, Cmd.none )
 
         MouseMove mousePos ->
             ( { model | mousePos = mousePos }, Cmd.none )
@@ -94,7 +100,7 @@ update msg model =
             ( model, Cmd.none )
 
         YippeeClicked ->
-            ( jumpYippee model, Cmd.none )
+            jumpYippee model
 
         SpawnConfetti ->
             let
@@ -124,7 +130,7 @@ update msg model =
             ( model, delay seconds cont )
 
 
-frame : FrameData a -> State s -> ( State s, Cmd Msg )
+frame : FrameData a -> Model -> ( Model, Cmd Msg )
 frame frameData oldState =
     let
         ( newState, cmd ) =
@@ -150,7 +156,7 @@ frameApples frameData state =
     )
 
 
-frameYippee : FrameData f -> State y -> State y
+frameYippee : FrameData f -> Model -> Model
 frameYippee { delta } state =
     let
         maxSpeed =
@@ -161,7 +167,13 @@ frameYippee { delta } state =
             state.apples
                 |> List.head
                 |> Maybe.map (.pos >> (\x -> ( x, x )))
-                |> Maybe.withDefault ( state.mousePos, movedMousePos state )
+                |> Maybe.withDefault
+                    (if state.fullscreen then
+                        ( state.windowSize |> vec2 |> Vec2.scale 0.5 |> vec, { x = 0, y = 0 } )
+
+                     else
+                        ( state.mousePos, movedMousePos state )
+                    )
 
         diff =
             Vec2.sub (vec2 targetPos) (vec2 <| centerPos state)
@@ -173,7 +185,7 @@ frameYippee { delta } state =
             { y = state.pos.y, x = state.pos.x + delta * clamp -maxSpeed maxSpeed wantedMove }
 
         jump =
-            state.jump - delta |> Basics.max 0
+            state.jump - 1.2 * delta |> Basics.max 0
 
         flipped =
             if jump == 0 then
@@ -196,15 +208,17 @@ yippeeMood yippee =
         )
 
 
-jumpYippee : Yippee y -> Yippee y
+jumpYippee : Yippee y -> ( Yippee y, Cmd Msg )
 jumpYippee yippee =
-    { yippee | jump = 1 }
+    ( { yippee | jump = 1 }
+    , Random.Float.normal 0.5 0.2 |> generate IncreaseHappiness
+    )
 
 
 yippeeScream : Model -> ( Model, Cmd Msg )
 yippeeScream model =
-    ( { model | sounds = model.resources.yippeeSoundUrl :: model.sounds }
-    , delay 500 SpawnConfetti
+    ( { model | sounds = model.resources.yippeeSoundUrl :: model.sounds } |> Debug.log "Screaming!"
+    , delay 0.5 SpawnConfetti
     )
 
 
@@ -331,13 +345,13 @@ delay seconds msg =
 
 view : Model -> Html Msg
 view model =
-    div []
-        ([ viewYippee model.resources model
-         , viewAppleButton model
-         , Confetti.view model.confetti |> Html.map ConfettiMsg |> Html.Styled.fromUnstyled
-         ]
+    div [ cssUnset [ zIndex <| int 1000 ] ]
+        (List.map viewSound model.sounds
+            ++ [ viewYippee model.resources model
+               , viewAppleButton model
+               , Confetti.view model.confetti |> Html.map ConfettiMsg |> Html.Styled.fromUnstyled
+               ]
             ++ List.map (viewApple model.resources) model.apples
-            ++ List.map viewSound model.sounds
         )
 
 
@@ -353,13 +367,11 @@ viewYippee resources { pos, flipped, jump } =
     in
     img
         [ src resources.yippeeUrl
-        , screenPosition { x = pos.x, y = pos.y + 200 * (1 - (2 * jump - 1) ^ 2 |> Basics.max 0) }
         , noDrag
-        , front
         , onClick YippeeClicked
-        , css
-            [ all unset
-            , Css.width (px 100)
+        , cssUnset
+            [ Css.width (px 100)
+            , screenPosition { x = pos.x, y = pos.y + 200 * (1 - (2 * jump - 1) ^ 2 |> Basics.max 0) }
             , opacity (num 90)
             , if jump == 0 then
                 transition [ Css.Transitions.transform3 200 0 easeInOut ]
@@ -380,10 +392,9 @@ viewApple : Resources -> Apple -> Html Msg
 viewApple { appleUrl } { pos, rotation } =
     img
         [ src appleUrl
-        , screenPosition pos
-        , front
-        , css
-            [ transforms
+        , cssUnset
+            [ screenPosition pos
+            , transforms
                 [ centerX
                 , rotate (rad rotation)
                 ]
@@ -396,8 +407,7 @@ viewApple { appleUrl } { pos, rotation } =
 viewAppleButton : Model -> Html Msg
 viewAppleButton { resources, windowSize } =
     div
-        [ front
-        , css
+        [ cssUnset
             [ border3 (px 2) solid black
             , position fixed
             , bottom (px 0)
@@ -411,7 +421,7 @@ viewAppleButton { resources, windowSize } =
             [ src resources.appleUrl
             , draggable "true"
             , preventDefaultOn "dragend" (decodeEventPos windowSize |> D.map (\x -> ( AddAppleAt x, True )))
-            , css [ Css.width (px 40) ]
+            , cssUnset [ Css.width (px 40) ]
             ]
             []
         ]
@@ -419,12 +429,18 @@ viewAppleButton { resources, windowSize } =
 
 viewSound : String -> Html Msg
 viewSound url =
-    audio [ src url, autoplay True, on "ended" (D.succeed <| AudioFinished url) ] []
+    audio
+        [ src url
+        , cssUnset []
+        , autoplay True
+        , on "ended" (D.succeed <| AudioFinished url)
+        ]
+        []
 
 
-screenPosition : Vec -> Attribute a
+screenPosition : Vec -> Style
 screenPosition { x, y } =
-    css
+    Css.batch
         [ position fixed
         , bottom (px y)
         , left (px x)
@@ -456,8 +472,8 @@ centerX =
     translateX (pct -50)
 
 
-front =
-    css [ zIndex (int 10000) ]
+cssUnset list =
+    css [ important (all unset :: list |> Css.batch) ]
 
 
 subscriptions : Model -> Sub Msg
@@ -467,5 +483,6 @@ subscriptions model =
         , Ports.saveDone (\_ -> SaveDone)
         , Ports.mouseMove MouseMove
         , onResize WindowResize
+        , Ports.onFullscreenChange FullscreenChange
         , model.confetti |> Confetti.subscriptions |> Sub.map ConfettiMsg
         ]

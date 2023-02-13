@@ -1,4 +1,4 @@
-port module Ports exposing (frame, mouseMove, requestSave, saveDone, playSound)
+port module Ports exposing (frame, mouseMove, requestSave, saveDone, playSound, onFullscreenChange)
 
 import Json.Encode as E
 import Model exposing (State, Vec, encodeState)
@@ -22,3 +22,6 @@ port mouseMove : (Vec -> a) -> Sub a
 
 
 port playSound : String -> Cmd a
+
+
+port onFullscreenChange : (Bool -> a) -> Sub a

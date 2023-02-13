@@ -8,6 +8,7 @@ type alias Flags =
     { maybeState : Maybe (State {})
     , resources : Resources
     , windowSize : Vec
+    , url : String
     }
 
 
@@ -17,6 +18,8 @@ type alias Model =
         , windowSize : Vec
         , confetti : Confetti.Model
         , sounds : List String
+        , url: String
+        , fullscreen : Bool
         }
 
 
