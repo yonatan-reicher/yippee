@@ -405,13 +405,27 @@ viewApple { appleUrl } { pos, rotation } =
 
 
 viewAppleButton : Model -> Html Msg
-viewAppleButton { resources, windowSize } =
+viewAppleButton { resources, windowSize, fullscreen } =
+    let moveAway bool = 
+            transform
+                (translateX <|
+                    pct <|
+                        if bool then
+                            80
+
+                        else
+                            0
+                )
+    in
     div
         [ cssUnset
             [ border3 (px 2) solid black
             , position fixed
             , bottom (px 0)
             , right (px 0)
+            , moveAway fullscreen
+            , hover [moveAway False]
+            , transition [ Css.Transitions.transform3 300 0 easeInOut ]
             , padding (px 8)
             , backgroundColor white
             , opacity (num 0.9)
