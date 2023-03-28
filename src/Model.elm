@@ -1,7 +1,8 @@
-module Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee, encodeApple, encodeState, encodeVec, initialState)
+module Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee, encodeApple, encodeState, encodeVec, initialState, stateDecoder, vecDecoder)
 
 import Confetti
 import Json.Encode as E
+import Json.Decode as D
 
 
 type alias Flags =
@@ -102,3 +103,38 @@ initialState =
     , apples = []
     , jump = 0
     }
+
+stateDecoder : D.Decoder (State {})
+stateDecoder =
+    D.map8 (\pos targetPos focusPos mousePos flipped apples happiness jump ->
+        { pos = pos
+        , targetPos = targetPos
+        , focusPos = focusPos
+        , mousePos = mousePos
+        , flipped = flipped
+        , apples = apples
+        , happiness = happiness
+        , jump = jump
+        })
+        (D.field "pos" vecDecoder)
+        (D.field "targetPos" vecDecoder)
+        (D.field "focusPos" vecDecoder)
+        (D.field "mousePos" vecDecoder)
+        (D.field "flipped" D.bool)
+        (D.field "apples" (D.list appleDecoder))
+        (D.field "happiness" D.float)
+        (D.field "jump" D.float)
+
+
+appleDecoder : D.Decoder Apple
+appleDecoder =
+    D.map4 Apple
+        (D.field "pos" vecDecoder)
+        (D.field "velocity" D.float)
+        (D.field "roll" D.float)
+        (D.field "rotation" D.float)
+
+
+vecDecoder : D.Decoder Vec
+vecDecoder =
+    D.map2 Vec (D.field "x" D.float) (D.field "y" D.float)

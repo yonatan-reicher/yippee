@@ -11,7 +11,7 @@ import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
 import Json.Decode as D
 import Math.Vector2 as Vec2 exposing (Vec2)
-import Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee, initialState)
+import Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee, initialState, stateDecoder)
 import Ports
 import Process exposing (sleep)
 import Random exposing (generate)
@@ -35,6 +35,7 @@ type Msg
     | Delayed Msg Float
     | FullscreenChange Bool
     | EnableDisable Bool
+    | LoadState (Result D.Error (State {}))
 
 
 type alias FrameData a =
@@ -133,6 +134,23 @@ update msg model =
 
         Delayed cont seconds ->
             ( model, delay seconds cont )
+
+        LoadState (Ok { pos, targetPos, focusPos, mousePos, flipped, apples, happiness, jump }) ->
+            ( { model
+              | pos = pos
+              , targetPos = targetPos
+              , focusPos = focusPos
+              , mousePos = mousePos
+              , flipped = flipped
+              , apples = apples
+              , happiness = happiness
+              , jump = jump
+              }
+            , Cmd.none
+            )
+
+        LoadState (Err _) ->
+            ( model, Cmd.none )
 
 
 frame : FrameData a -> Model -> ( Model, Cmd Msg )
@@ -505,6 +523,9 @@ subscriptions model =
         , onResize WindowResize
         , Ports.onFullscreenChange FullscreenChange
         , model.confetti |> Confetti.subscriptions |> Sub.map ConfettiMsg
-        , Ports.enableDisable (\enabled -> EnableDisable enabled)
-        , Ports.loadState (\state -> LoadState state)
+        , Ports.enableDisable (\() -> EnableDisable (not model.enabled))
+        , Ports.loadState (\state -> 
+            D.decodeValue stateDecoder state
+            |> LoadState
+        )
         ]

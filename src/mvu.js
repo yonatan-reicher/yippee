@@ -1,14 +1,7 @@
-const modelKey = 'yippeeModel';
-
 const node = document.createElement("div");
 const body = document.querySelector("body");
 
 body.append(node);
-
-loadState = () => 
-    chrome.storage.local.get(modelKey)
-    .then(res => res[modelKey])
-
 
 loadState()
     .catch(_ => null)
@@ -71,12 +64,12 @@ loadState()
 
         chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (message.type === 'enable-disable') {
-                elm.ports.enableDisable.send(!!message.enable)
+                elm.ports.enableDisable.send(null)
             }
         })
 
         window.addEventListener('focus', _ => {
-            loadState().then(state => elm.ports.onLoadState.send(state))
+            loadState().then(state => elm.ports.loadState.send(state))
         })
     })
 
