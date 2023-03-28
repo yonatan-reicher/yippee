@@ -5,8 +5,12 @@ const body = document.querySelector("body");
 
 body.append(node);
 
-chrome.storage.local.get(modelKey)
+loadState = () => 
+    chrome.storage.local.get(modelKey)
     .then(res => res[modelKey])
+
+
+loadState()
     .catch(_ => null)
     .then(maybeState => {
         const resources = {
@@ -65,5 +69,14 @@ chrome.storage.local.get(modelKey)
             elm.ports.onFullscreenChange.send(document.fullscreenElement ? true : false)
         })
 
+        chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+            if (message.type === 'enable-disable') {
+                elm.ports.enableDisable.send(!!message.enable)
+            }
+        })
+
+        window.addEventListener('focus', _ => {
+            loadState().then(state => elm.ports.onLoadState.send(state))
+        })
     })
 

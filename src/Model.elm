@@ -20,6 +20,7 @@ type alias Model =
         , sounds : List String
         , url: String
         , fullscreen : Bool
+        , enabled : Bool
         }
 
 

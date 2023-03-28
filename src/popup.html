@@ -1,0 +1,33 @@
+<!doctype html>
+<!--
+ This page is shown when the extension button is clicked.
+ -->
+<html>
+
+<head>
+    <title>Yippee!</title>
+    <style>
+        body {
+            font-family: "Segoe UI", "Lucida Grande", Tahoma, sans-serif;
+            font-size: 100%;
+        }
+
+        #status {
+            /* avoid an excessively wide status text */
+            white-space: pre;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            max-width: 400px;
+        }
+
+    </style>
+
+</head>
+
+<body>
+    <div id="status"></div>
+    <input type="checkbox" id="enable" checked="checked"/>
+    <script src="popup.js"></script>
+</body>
+
+</html>

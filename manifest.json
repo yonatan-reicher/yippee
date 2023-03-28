@@ -8,6 +8,10 @@
       "id": "yippee@shanina"
     }
   },
+  "action": {
+      "default_title": "Yippee!",
+      "default_popup": "src/popup.html"
+  },
   "permissions": [
     "activeTab",
     "storage",

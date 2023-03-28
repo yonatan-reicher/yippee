@@ -34,6 +34,7 @@ type Msg
     | YippeeScream
     | Delayed Msg Float
     | FullscreenChange Bool
+    | EnableDisable Bool
 
 
 type alias FrameData a =
@@ -70,6 +71,7 @@ init { maybeState, resources, windowSize, url } =
       , sounds = []
       , url = url
       , fullscreen = False
+      , enabled = True
       }
     , Cmd.none
     )
@@ -83,6 +85,9 @@ update msg model =
 
         FullscreenChange fullscreen ->
             ( { model | fullscreen = fullscreen }, Cmd.none )
+
+        EnableDisable enabled ->
+            ( { model | enabled = enabled }, Cmd.none )
 
         MouseMove mousePos ->
             ( { model | mousePos = mousePos }, Cmd.none )
@@ -345,14 +350,15 @@ delay seconds msg =
 
 view : Model -> Html Msg
 view model =
-    div [ cssUnset [ zIndex <| int 1000 ] ]
-        (List.map viewSound model.sounds
-            ++ [ viewYippee model.resources model
-               , viewAppleButton model
-               , Confetti.view model.confetti |> Html.map ConfettiMsg |> Html.Styled.fromUnstyled
-               ]
-            ++ List.map (viewApple model.resources) model.apples
-        )
+    if not model.enabled then div [] [] else
+        div [ cssUnset [ zIndex <| int 1000 ] ]
+            (List.map viewSound model.sounds
+                ++ [ viewYippee model.resources model
+                   , viewAppleButton model
+                   , Confetti.view model.confetti |> Html.map ConfettiMsg |> Html.Styled.fromUnstyled
+                   ]
+                ++ List.map (viewApple model.resources) model.apples
+            )
 
 
 viewYippee : Resources -> Yippee a -> Html Msg
@@ -499,4 +505,6 @@ subscriptions model =
         , onResize WindowResize
         , Ports.onFullscreenChange FullscreenChange
         , model.confetti |> Confetti.subscriptions |> Sub.map ConfettiMsg
+        , Ports.enableDisable (\enabled -> EnableDisable enabled)
+        , Ports.loadState (\state -> LoadState state)
         ]
