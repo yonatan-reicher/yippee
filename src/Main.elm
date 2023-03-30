@@ -18,16 +18,18 @@ import Process exposing (sleep)
 import Random exposing (generate)
 import Random.Float
 import Task
+import Yippee
+import CssUtility exposing (..)
 
 
 type Msg
     = Frame { delta : Float, time : Float }
+    | YippeeMsg Yippee.Msg
     | SaveDone
     | MouseMove Vec
     | AddAppleAt Vec
     | AddApple Apple
     | WindowResize Int Int
-    | YippeeClicked
     | ConfettiMsg Confetti.Msg
     | SpawnConfetti
     | AudioFinished String
@@ -86,6 +88,12 @@ update msg model =
         Frame data ->
             frame data model
 
+        YippeeMsg (Yippee.Clicked) ->
+            jumpYippee model
+
+        YippeeMsg (Yippee.Dragged) ->
+            ( model, Cmd.none )
+
         FullscreenChange fullscreen ->
             ( { model | fullscreen = fullscreen }, Cmd.none )
 
@@ -106,9 +114,6 @@ update msg model =
 
         SaveDone ->
             ( model, Cmd.none )
-
-        YippeeClicked ->
-            jumpYippee model
 
         SpawnConfetti ->
             let
@@ -139,14 +144,14 @@ update msg model =
 
         LoadState (Ok { pos, targetPos, focusPos, mousePos, flipped, apples, happiness, jump }) ->
             ( { model
-              | pos = pos
-              , targetPos = targetPos
-              , focusPos = focusPos
-              , mousePos = mousePos
-              , flipped = flipped
-              , apples = apples
-              , happiness = happiness
-              , jump = jump
+                | pos = pos
+                , targetPos = targetPos
+                , focusPos = focusPos
+                , mousePos = mousePos
+                , flipped = flipped
+                , apples = apples
+                , happiness = happiness
+                , jump = jump
               }
             , Cmd.none
             )
@@ -219,19 +224,15 @@ frameYippee { delta } state =
             else
                 state.flipped
 
-        happiness = state.happiness - delta * 0.01 |> Basics.max 0
+        -- happiness =
+        --     state.happiness - delta * 0.01 |> Basics.max 0
     in
-    { state | pos = pos, flipped = flipped, targetPos = targetPos, focusPos = focusPos, jump = jump, happiness = happiness }
-
-
-maxHappiness : Float
-maxHappiness =
-    10
+    { state | pos = pos, flipped = flipped, targetPos = targetPos, focusPos = focusPos, jump = jump {- , happiness = happiness -} }
 
 
 yippeeMood : Model -> ( Model, Cmd Msg )
 yippeeMood yippee =
-    if yippee.happiness < maxHappiness then
+    if yippee.happiness < Yippee.maxHappiness then
         ( yippee, Cmd.none )
 
     else
@@ -377,11 +378,14 @@ delay seconds msg =
 
 view : Model -> Html Msg
 view model =
-    if not model.enabled then div [] [] else
+    if not model.enabled then
+        div [] []
+
+    else
         div
             [ cssUnset []
             ]
-            [ viewYippee model.resources model
+            [ Yippee.view model.resources model |> Html.Styled.map YippeeMsg
             , viewAppleButton model
             , viewHappinessBar model
             , viewLevel model
@@ -389,46 +393,6 @@ view model =
             , div [ cssUnset [] ] (List.map viewSound model.sounds)
             , div [ cssUnset [] ] (List.map (viewApple model.resources) model.apples)
             ]
-
-
-viewYippee : Resources -> Yippee a -> Html Msg
-viewYippee resources { pos, flipped, jump, happiness } =
-    let
-        xScale =
-            if flipped then
-                -1
-
-            else
-                1
-
-
-        transformTransitionTime =
-            if jump == 0 then
-                200
-
-            else
-                0
-    in
-    img
-        [ src resources.yippeeUrl
-        , noDrag
-        , onClick YippeeClicked
-        , cssUnset
-            [ Css.width (px (100 + happiness * 7))
-            , screenPosition { x = pos.x, y = pos.y + 200 * (1 - (2 * jump - 1) ^ 2 |> Basics.max 0) }
-            , opacity (num 90)
-            , transition
-                [ Css.Transitions.transform3 transformTransitionTime 0 easeInOut
-                , Css.Transitions.width3 2000 0 easeInOut
-                ]
-            , transforms
-                [ centerX
-                , scaleX xScale
-                , rotate (deg <| -jump * 360)
-                ]
-            ]
-        ]
-        []
 
 
 viewApple : Resources -> Apple -> Html Msg
@@ -449,7 +413,8 @@ viewApple { appleUrl } { pos, rotation } =
 
 viewAppleButton : Model -> Html Msg
 viewAppleButton { resources, windowSize, fullscreen } =
-    let moveAway bool = 
+    let
+        moveAway bool =
             transform
                 (translateX <|
                     pct <|
@@ -467,7 +432,7 @@ viewAppleButton { resources, windowSize, fullscreen } =
             , bottom (px 0)
             , right (px 0)
             , moveAway fullscreen
-            , hover [moveAway False]
+            , hover [ moveAway False ]
             , transition [ Css.Transitions.transform3 300 0 easeInOut ]
             , padding (px 8)
             , backgroundColor white
@@ -485,7 +450,8 @@ viewAppleButton { resources, windowSize, fullscreen } =
 
 
 viewHappinessBar : { a | happiness : Float } -> Html Msg
-viewHappinessBar { happiness } = viewBar "Happiness" (happiness / maxHappiness)
+viewHappinessBar { happiness } =
+    viewBar "Happiness" (happiness / Yippee.maxHappiness)
 
 
 viewBar : String -> Float -> Html Msg
@@ -498,7 +464,7 @@ viewBar name fill =
             [ position fixed
             , bottom (px 0)
             , right (px 60)
-            , fontStyle
+            , myFontStyle
             , backgroundColor gray
             , Css.height (px 30)
             , Css.width (px 120)
@@ -510,7 +476,7 @@ viewBar name fill =
                 , display inlineBlock
                 , Css.height (pct 100)
                 , Css.width (pct 100)
-                , fontStyle
+                , myFontStyle
                 , textAlign center
                 , verticalAlign middle
                 ]
@@ -524,19 +490,18 @@ viewBar name fill =
                 , display inlineBlock
                 ]
             ]
-            [
-            ]
+            []
         ]
 
 
 viewLevel : { a | level : Int } -> Html Msg
-viewLevel { level } = 
-    div 
+viewLevel { level } =
+    div
         [ cssUnset
             [ position fixed
             , bottom (px 30)
             , right (px 60)
-            , fontStyle
+            , myFontStyle
             , backgroundColor gray
             , Css.height (px 30)
             , Css.width (px 120)
@@ -559,15 +524,6 @@ viewSound url =
         []
 
 
-screenPosition : Vec -> Style
-screenPosition { x, y } =
-    Css.batch
-        [ position fixed
-        , bottom (px y)
-        , left (px x)
-        ]
-
-
 decodeEventPos : Vec -> D.Decoder Vec
 decodeEventPos windowSize =
     D.map2 Vec
@@ -575,52 +531,6 @@ decodeEventPos windowSize =
         (D.field "clientY" D.float
             |> D.map (\y -> windowSize.y - y)
         )
-
-
-noDrag =
-    preventDefaultOn "dragstart" (D.succeed ( SaveDone, True ))
-
-
-black =
-    rgb 0 0 0
-
-
-white =
-    rgb 255 255 255
-
-
-gray =
-    rgb 128 128 128
-
-
-softRed =
-    rgb 255 128 130
-
-
-centerX =
-    translateX (pct -50)
-
-
-cssUnset list =
-    css
-        [ important (all initial :: zIndex (int 999999) :: list |> Css.batch)
-        ]
-
-
-fontStyle =
-    Css.batch
-        [ fontWeight bold
-        , color white
-        , fontSize (px 20)
-        , fontFamilies
-            [ "Segoe UI"
-            , "Lucida Grande"
-            , "Helvetica Neue"
-            , "Helvetica"
-            , "Arial"
-            , "sans-serif"
-            ]
-        ]
 
 
 subscriptions : Model -> Sub Msg
@@ -633,8 +543,9 @@ subscriptions model =
         , Ports.onFullscreenChange FullscreenChange
         , model.confetti |> Confetti.subscriptions |> Sub.map ConfettiMsg
         , Ports.enableDisable (\() -> EnableDisable (not model.enabled))
-        , Ports.loadState (\state -> 
-            D.decodeValue stateDecoder state
-            |> LoadState
-        )
+        , Ports.loadState
+            (\state ->
+                D.decodeValue stateDecoder state
+                    |> LoadState
+            )
         ]
