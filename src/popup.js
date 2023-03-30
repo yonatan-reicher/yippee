@@ -23,7 +23,7 @@ enableDisableButton.addEventListener('click', () => {
 happinessSpan = document.querySelector("#happiness")
 
 function updateHappiness(state) {
-    happinessSpan.value = Number(state.happiness) / 7
+    happinessSpan.value = Number(state.happiness) / 10
 }
 
 loadState().then(updateHappiness)

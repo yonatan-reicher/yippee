@@ -10,6 +10,7 @@ import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
 import Json.Decode as D
+import Json.Encode as E
 import Math.Vector2 as Vec2 exposing (Vec2)
 import Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee, initialState, stateDecoder)
 import Ports
@@ -55,7 +56,7 @@ main =
 init : Flags -> ( Model, Cmd Msg )
 init { maybeState, resources, windowSize, url } =
     let
-        { pos, targetPos, flipped, apples, mousePos, focusPos, happiness, jump } =
+        { pos, targetPos, flipped, apples, mousePos, focusPos, happiness, level, jump } =
             maybeState |> Maybe.withDefault initialState
     in
     ( { pos = pos
@@ -67,6 +68,7 @@ init { maybeState, resources, windowSize, url } =
       , resources = resources
       , windowSize = windowSize
       , happiness = happiness
+      , level = level
       , jump = jump
       , confetti = Confetti.init
       , sounds = []
@@ -216,17 +218,24 @@ frameYippee { delta } state =
 
             else
                 state.flipped
+
+        happiness = state.happiness - delta * 0.01 |> Basics.max 0
     in
-    { state | pos = pos, flipped = flipped, targetPos = targetPos, focusPos = focusPos, jump = jump }
+    { state | pos = pos, flipped = flipped, targetPos = targetPos, focusPos = focusPos, jump = jump, happiness = happiness }
+
+
+maxHappiness : Float
+maxHappiness =
+    10
 
 
 yippeeMood : Model -> ( Model, Cmd Msg )
 yippeeMood yippee =
-    if yippee.happiness < 7 then
+    if yippee.happiness < maxHappiness then
         ( yippee, Cmd.none )
 
     else
-        ( { yippee | happiness = 0 }
+        ( { yippee | happiness = 0, level = yippee.level + 1 }
         , Random.generate (Delayed YippeeScream) (Random.Float.normal 0.5 0.2)
         )
 
@@ -240,7 +249,7 @@ jumpYippee yippee =
 
 yippeeScream : Model -> ( Model, Cmd Msg )
 yippeeScream model =
-    ( { model | sounds = model.resources.yippeeSoundUrl :: model.sounds } |> Debug.log "Screaming!"
+    ( { model | sounds = model.resources.yippeeSoundUrl :: model.sounds }
     , delay 0.5 SpawnConfetti
     )
 
@@ -369,18 +378,21 @@ delay seconds msg =
 view : Model -> Html Msg
 view model =
     if not model.enabled then div [] [] else
-        div [ cssUnset [ zIndex <| int 1000 ] ]
-            (List.map viewSound model.sounds
-                ++ [ viewYippee model.resources model
-                   , viewAppleButton model
-                   , Confetti.view model.confetti |> Html.map ConfettiMsg |> Html.Styled.fromUnstyled
-                   ]
-                ++ List.map (viewApple model.resources) model.apples
-            )
+        div
+            [ cssUnset []
+            ]
+            [ viewYippee model.resources model
+            , viewAppleButton model
+            , viewHappinessBar model
+            , viewLevel model
+            , Confetti.view model.confetti |> Html.map ConfettiMsg |> Html.Styled.fromUnstyled
+            , div [ cssUnset [] ] (List.map viewSound model.sounds)
+            , div [ cssUnset [] ] (List.map (viewApple model.resources) model.apples)
+            ]
 
 
 viewYippee : Resources -> Yippee a -> Html Msg
-viewYippee resources { pos, flipped, jump } =
+viewYippee resources { pos, flipped, jump, happiness } =
     let
         xScale =
             if flipped then
@@ -388,20 +400,27 @@ viewYippee resources { pos, flipped, jump } =
 
             else
                 1
+
+
+        transformTransitionTime =
+            if jump == 0 then
+                200
+
+            else
+                0
     in
     img
         [ src resources.yippeeUrl
         , noDrag
         , onClick YippeeClicked
         , cssUnset
-            [ Css.width (px 100)
+            [ Css.width (px (100 + happiness * 7))
             , screenPosition { x = pos.x, y = pos.y + 200 * (1 - (2 * jump - 1) ^ 2 |> Basics.max 0) }
             , opacity (num 90)
-            , if jump == 0 then
-                transition [ Css.Transitions.transform3 200 0 easeInOut ]
-
-              else
-                Css.batch []
+            , transition
+                [ Css.Transitions.transform3 transformTransitionTime 0 easeInOut
+                , Css.Transitions.width3 2000 0 easeInOut
+                ]
             , transforms
                 [ centerX
                 , scaleX xScale
@@ -465,12 +484,76 @@ viewAppleButton { resources, windowSize, fullscreen } =
         ]
 
 
+viewHappinessBar : { a | happiness : Float } -> Html Msg
+viewHappinessBar { happiness } = viewBar "Happiness" (happiness / maxHappiness)
+
+
+viewBar : String -> Float -> Html Msg
+viewBar name fill =
+    div
+        [ value (String.fromFloat fill)
+        , Html.Styled.Attributes.min "0"
+        , Html.Styled.Attributes.max "1"
+        , cssUnset
+            [ position fixed
+            , bottom (px 0)
+            , right (px 60)
+            , fontStyle
+            , backgroundColor gray
+            , Css.height (px 30)
+            , Css.width (px 120)
+            ]
+        ]
+        [ div
+            [ cssUnset
+                [ position absolute
+                , display inlineBlock
+                , Css.height (pct 100)
+                , Css.width (pct 100)
+                , fontStyle
+                , textAlign center
+                , verticalAlign middle
+                ]
+            ]
+            [ text name ]
+        , div
+            [ cssUnset
+                [ Css.width <| pct <| fill * 100
+                , Css.height (pct 100)
+                , backgroundColor softRed
+                , display inlineBlock
+                ]
+            ]
+            [
+            ]
+        ]
+
+
+viewLevel : { a | level : Int } -> Html Msg
+viewLevel { level } = 
+    div 
+        [ cssUnset
+            [ position fixed
+            , bottom (px 30)
+            , right (px 60)
+            , fontStyle
+            , backgroundColor gray
+            , Css.height (px 30)
+            , Css.width (px 120)
+            , textAlign center
+            , verticalAlign middle
+            ]
+        ]
+        [ text <| "Level: " ++ String.fromInt level ]
+
+
 viewSound : String -> Html Msg
 viewSound url =
     audio
         [ src url
         , cssUnset []
         , autoplay True
+        , Html.Styled.Attributes.property "volume" (E.float 0.1)
         , on "ended" (D.succeed <| AudioFinished url)
         ]
         []
@@ -506,12 +589,38 @@ white =
     rgb 255 255 255
 
 
+gray =
+    rgb 128 128 128
+
+
+softRed =
+    rgb 255 128 130
+
+
 centerX =
     translateX (pct -50)
 
 
 cssUnset list =
-    css [ important (all unset :: list |> Css.batch) ]
+    css
+        [ important (all initial :: zIndex (int 999999) :: list |> Css.batch)
+        ]
+
+
+fontStyle =
+    Css.batch
+        [ fontWeight bold
+        , color white
+        , fontSize (px 20)
+        , fontFamilies
+            [ "Segoe UI"
+            , "Lucida Grande"
+            , "Helvetica Neue"
+            , "Helvetica"
+            , "Arial"
+            , "sans-serif"
+            ]
+        ]
 
 
 subscriptions : Model -> Sub Msg
