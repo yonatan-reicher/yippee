@@ -5,6 +5,7 @@ import Browser.Events exposing (onResize)
 import Confetti
 import Css exposing (..)
 import Css.Transitions exposing (easeInOut, transition)
+import CssUtility exposing (..)
 import Html
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
@@ -19,7 +20,6 @@ import Random exposing (generate)
 import Random.Float
 import Task
 import Yippee
-import CssUtility exposing (..)
 
 
 type Msg
@@ -88,10 +88,10 @@ update msg model =
         Frame data ->
             frame data model
 
-        YippeeMsg (Yippee.Clicked) ->
+        YippeeMsg Yippee.Clicked ->
             jumpYippee model
 
-        YippeeMsg (Yippee.Dragged) ->
+        YippeeMsg Yippee.Dragged ->
             ( model, Cmd.none )
 
         FullscreenChange fullscreen ->
@@ -227,7 +227,11 @@ frameYippee { delta } state =
         -- happiness =
         --     state.happiness - delta * 0.01 |> Basics.max 0
     in
-    { state | pos = pos, flipped = flipped, targetPos = targetPos, focusPos = focusPos, jump = jump {- , happiness = happiness -} }
+    { state
+        | pos = pos, flipped = flipped, targetPos = targetPos, focusPos = focusPos, jump = jump
+
+        {- , happiness = happiness -}
+    }
 
 
 yippeeMood : Model -> ( Model, Cmd Msg )
