@@ -1,17 +1,10 @@
-module Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee, encodeApple, encodeState, encodeVec, initialState, stateDecoder, vecDecoder, makeState)
+module Model exposing (Apple, Model, Resources, State, Vec, Yippee, encodeApple, encodeState, encodeVec, initialState, stateDecoder, vecDecoder, makeState)
 
 import Confetti
 import Json.Encode as E
 import Json.Decode as D
 import Json.Decode.Extra as DD
-
-
-type alias Flags =
-    { maybeState : Maybe (State {})
-    , resources : Resources
-    , windowSize : Vec
-    , url : String
-    }
+import Time exposing (Posix, posixToMillis, millisToPosix)
 
 
 type alias Model =
@@ -43,6 +36,7 @@ type alias Yippee a =
         , happiness : Float
         , level : Int
         , jump : Float
+        , lastLeveledUpDate : Posix
     }
 
 
@@ -66,7 +60,7 @@ type alias Vec =
 
 
 encodeState : State a -> E.Value
-encodeState { pos, targetPos, flipped, apples, mousePos, focusPos, happiness, level, jump } =
+encodeState ({ pos, targetPos, flipped, apples, mousePos, focusPos, happiness, level, jump, lastLeveledUpDate } as state) =
     E.object
         [ ( "pos", encodeVec pos )
         , ( "targetPos", encodeVec targetPos )
@@ -77,6 +71,7 @@ encodeState { pos, targetPos, flipped, apples, mousePos, focusPos, happiness, le
         , ( "happiness", E.float happiness )
         , ( "level", E.int level )
         , ( "jump", E.float jump )
+        , ( "lastLeveledUpDate", E.int <| posixToMillis lastLeveledUpDate )
         ]
 
 
@@ -95,6 +90,7 @@ encodeVec { x, y } =
     E.object [ ( "x", E.float x ), ( "y", E.float y ) ]
 
 
+-- TODO: Get rid of this.
 initialState : State {}
 initialState =
     { pos = { x = 0, y = 0 }
@@ -106,6 +102,7 @@ initialState =
     , flipped = True
     , apples = []
     , jump = 0
+    , lastLeveledUpDate = millisToPosix 0
     }
 
 stateDecoder : D.Decoder (State {})
@@ -118,8 +115,9 @@ stateDecoder =
     |> DD.andMap (D.field "flipped" D.bool)
     |> DD.andMap (D.field "apples" (D.list appleDecoder))
     |> DD.andMap (D.field "happiness" D.float)
-    |> DD.andMap (D.field "level" (D.int |> DD.withDefault 0))
+    |> DD.andMap (D.field "level" D.int |> DD.withDefault 0)
     |> DD.andMap (D.field "jump" D.float)
+    |> DD.andMap (D.field "lastLeveledUpDate" D.int |> DD.withDefault 0 |> D.map millisToPosix)
 
 
 appleDecoder : D.Decoder Apple
@@ -136,7 +134,8 @@ vecDecoder =
     D.map2 Vec (D.field "x" D.float) (D.field "y" D.float)
 
 
-makeState pos targetPos focusPos mousePos flipped apples happiness level jump =
+makeState : Vec -> Vec -> Vec -> Vec -> Bool -> List Apple -> Float -> Int -> Float -> Posix -> State {}
+makeState pos targetPos focusPos mousePos flipped apples happiness level jump lastLeveledUpDate =
     { pos = pos
     , targetPos = targetPos
     , focusPos = focusPos
@@ -146,4 +145,5 @@ makeState pos targetPos focusPos mousePos flipped apples happiness level jump =
     , happiness = happiness
     , level = level
     , jump = jump
+    , lastLeveledUpDate = lastLeveledUpDate
     }

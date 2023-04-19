@@ -13,13 +13,14 @@ import Html.Styled.Events exposing (..)
 import Json.Decode as D
 import Json.Encode as E
 import Math.Vector2 as Vec2 exposing (Vec2)
-import Model exposing (Apple, Flags, Model, Resources, State, Vec, Yippee, initialState, stateDecoder)
+import Model exposing (Apple, Model, Resources, State, Vec, Yippee, initialState, stateDecoder)
 import Ports
 import Process exposing (sleep)
 import Random exposing (generate)
 import Random.Float
 import Task
 import Yippee
+import Time exposing (Posix, now, posixToMillis)
 
 
 type Msg
@@ -39,10 +40,19 @@ type Msg
     | FullscreenChange Bool
     | EnableDisable Bool
     | LoadState (Result D.Error (State {}))
+    | OnFullHappiness Posix
 
 
 type alias FrameData a =
     { a | delta : Float, time : Float }
+
+
+type alias Flags =
+    { maybeState : D.Value
+    , resources : Resources
+    , windowSize : Vec
+    , url : String
+    }
 
 
 main : Program Flags Model Msg
@@ -58,8 +68,8 @@ main =
 init : Flags -> ( Model, Cmd Msg )
 init { maybeState, resources, windowSize, url } =
     let
-        { pos, targetPos, flipped, apples, mousePos, focusPos, happiness, level, jump } =
-            maybeState |> Maybe.withDefault initialState
+        { pos, targetPos, flipped, apples, mousePos, focusPos, happiness, level, jump, lastLeveledUpDate } =
+            maybeState |> D.decodeValue stateDecoder |> Result.withDefault initialState
     in
     ( { pos = pos
       , targetPos = targetPos
@@ -77,6 +87,7 @@ init { maybeState, resources, windowSize, url } =
       , url = url
       , fullscreen = False
       , enabled = True
+      , lastLeveledUpDate = lastLeveledUpDate
       }
     , Cmd.none
     )
@@ -159,6 +170,20 @@ update msg model =
         LoadState (Err _) ->
             ( model, Cmd.none )
 
+        OnFullHappiness time ->
+            if canLevelUp time model then
+                ( { model | level =  model.level + 1, lastLeveledUpDate = time }
+                , Cmd.none
+                )
+            else
+                ( model, Cmd.none )
+
+
+canLevelUp : Posix -> { a | lastLeveledUpDate : Posix } -> Bool
+canLevelUp now { lastLeveledUpDate } =
+    -- Only if ate more than 20 hours ago.
+    posixToMillis now - posixToMillis lastLeveledUpDate > 20 * 60 * 60 * 1000
+
 
 frame : FrameData a -> Model -> ( Model, Cmd Msg )
 frame frameData oldState =
@@ -240,8 +265,11 @@ yippeeMood yippee =
         ( yippee, Cmd.none )
 
     else
-        ( { yippee | happiness = 0, level = yippee.level + 1 }
-        , Random.generate (Delayed YippeeScream) (Random.Float.normal 0.5 0.2)
+        ( { yippee | happiness = 0, level = yippee.level }
+        , Cmd.batch
+            [ Random.generate (Delayed YippeeScream) (Random.Float.normal 0.5 0.2)
+            , now |> Task.perform OnFullHappiness
+            ]
         )
 
 
@@ -441,13 +469,16 @@ viewAppleButton { resources, windowSize, fullscreen } =
             , padding (px 8)
             , backgroundColor white
             , opacity (num 0.9)
+            , boxSizing borderBox
+            , Css.height (px 60)
+            , Css.width (px 60)
             ]
         ]
         [ img
             [ src resources.appleUrl
             , draggable "true"
             , preventDefaultOn "dragend" (decodeEventPos windowSize |> D.map (\x -> ( AddAppleAt x, True )))
-            , cssUnset [ Css.width (px 40) ]
+            , cssUnset [ Css.width (pct 100) ]
             ]
             []
         ]
