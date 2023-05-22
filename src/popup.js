@@ -28,3 +28,5 @@ function updateHappiness(state) {
 
 loadState().then(updateHappiness)
 onStateChanged(updateHappiness)
+
+document.querySelector("#shaninatan").src = chrome.runtime.getURL("resources/shaninatan.png")

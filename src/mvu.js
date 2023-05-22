@@ -1,7 +1,21 @@
+const nodeContainer = document.createElement("div");
 const node = document.createElement("div");
 const body = document.querySelector("body");
 
-body.append(node);
+// Give the container a unique ID so we can find it later.
+nodeContainer.id = "elm";
+
+// Delete any existing Elm nodes that might be there from previous loads.
+const allElmContainers = document.querySelectorAll("#elm");
+for (let i = 0; i < allElmContainers.length; i++) {
+    if (allElmContainers[i] !== nodeContainer) {
+        allElmContainers[i].remove();
+    }
+}
+
+// Add the node to the DOM.
+nodeContainer.append(node);
+body.append(nodeContainer);
 
 loadState()
     .catch(_ => null)
