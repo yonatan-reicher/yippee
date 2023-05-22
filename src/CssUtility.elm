@@ -15,7 +15,12 @@ preventDrag msg =
 
 black : Color
 black =
-    rgb 0 0 0
+    rgb 10 10 10
+
+
+dark : Color
+dark =
+    rgb 60 60 60
 
 
 white : Color
@@ -25,12 +30,12 @@ white =
 
 gray : Color
 gray =
-    rgb 128 128 128
+    rgb 228 228 228
 
 
 softRed : Color
 softRed =
-    rgb 255 128 130
+    rgb 255 178 170
 
 
 centerX : Transform {}
@@ -50,6 +55,23 @@ myFontStyle =
     Css.batch
         [ fontWeight bold
         , color white
+        , fontSize (px 20)
+        , fontFamilies
+            [ "Segoe UI"
+            , "Lucida Grande"
+            , "Helvetica Neue"
+            , "Helvetica"
+            , "Arial"
+            , "sans-serif"
+            ]
+        ]
+
+
+myFontStyleDark : Style
+myFontStyleDark =
+    Css.batch
+        [ fontWeight bold
+        , color dark
         , fontSize (px 20)
         , fontFamilies
             [ "Segoe UI"

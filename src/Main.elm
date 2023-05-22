@@ -459,7 +459,7 @@ viewAppleButton { resources, windowSize, fullscreen } =
     in
     div
         [ cssUnset
-            [ border3 (px 2) solid black
+            [ border3 (px 0) solid dark
             , position fixed
             , bottom (px 0)
             , right (px 0)
@@ -499,7 +499,7 @@ viewBar name fill =
             [ position fixed
             , bottom (px 0)
             , right (px 60)
-            , myFontStyle
+            , myFontStyleDark
             , backgroundColor gray
             , Css.height (px 30)
             , Css.width (px 120)
@@ -511,7 +511,7 @@ viewBar name fill =
                 , display inlineBlock
                 , Css.height (pct 100)
                 , Css.width (pct 100)
-                , myFontStyle
+                , myFontStyleDark
                 , textAlign center
                 , verticalAlign middle
                 ]
@@ -536,7 +536,7 @@ viewLevel { level } =
             [ position fixed
             , bottom (px 30)
             , right (px 60)
-            , myFontStyle
+            , myFontStyleDark
             , backgroundColor gray
             , Css.height (px 30)
             , Css.width (px 120)

@@ -38,12 +38,12 @@ lerp a b t =
 
 minWidth : Float
 minWidth =
-    70
+    80
 
 
 maxWidth : Float
 maxWidth =
-    170
+    140
 
 
 view : Resources -> Yippee a -> Html Msg
@@ -66,7 +66,7 @@ view { yippeeUrl } { pos, flipped, jump, happiness } =
         , cssUnset
             [ width <| px <| lerp minWidth maxWidth (happiness / maxHappiness)
             , screenPosition { x = pos.x, y = pos.y + 200 * (1 - (2 * jump - 1) ^ 2 |> Basics.max 0) }
-            , opacity (num 90)
+            , opacity (num 0.95)
             , transition
                 [ Css.Transitions.transform3 transformTransitionTime 0 easeInOut
                 , Css.Transitions.width3 1000 0 easeInOut
@@ -76,6 +76,8 @@ view { yippeeUrl } { pos, flipped, jump, happiness } =
                 , scaleX xScale
                 , rotate (deg <| -jump * 360)
                 ]
+            , Css.property "image-rendering" "crisp-edges"
+            , Css.property "filter" "brightness(1.2)"
             ]
         ]
         []
