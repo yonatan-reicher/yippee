@@ -7,26 +7,27 @@ enableDisableButton.addEventListener('click', () => {
             type: "enable-disable",
         })
     })
-    /*
-    // Tell the content scripts on all tabs to enable/disable themselves via the chrome api.
-    chrome.tabs.query({}, function(tabs) {
-        for (var i = 0; i < tabs.length; ++i) {
-            chrome.tabs.sendMessage(tabs[i].id, {
-                type: "enable-disable",
-                enable: enableCheckbox.checked
-            })
-        }
+})
+
+volumeSlider = document.querySelector("#volume")
+
+volumeSlider.addEventListener('input', () => {
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+            type: 'set-volume',
+            volume: Number(volumeSlider.value),
+        })
     })
-    */
 })
 
 happinessSpan = document.querySelector("#happiness")
 
-function updateHappiness(state) {
+function popupUpdate(state) {
     happinessSpan.value = Number(state.happiness) / 10
+    volumeSlider.value = state.volume
 }
 
-loadState().then(updateHappiness)
-onStateChanged(updateHappiness)
+loadState().then(popupUpdate)
+onStateChanged(popupUpdate)
 
 document.querySelector("#shaninatan").src = chrome.runtime.getURL("resources/shaninatan.png")

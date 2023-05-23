@@ -41,6 +41,7 @@ type Msg
     | EnableDisable Bool
     | LoadState (Result D.Error (State {}))
     | OnFullHappiness Posix
+    | SetVolume Float
 
 
 type alias FrameData a =
@@ -68,7 +69,7 @@ main =
 init : Flags -> ( Model, Cmd Msg )
 init { maybeState, resources, windowSize, url } =
     let
-        { pos, targetPos, flipped, apples, mousePos, focusPos, happiness, level, jump, lastLeveledUpDate } =
+        { pos, targetPos, flipped, apples, mousePos, focusPos, happiness, level, jump, lastLeveledUpDate, volume } =
             maybeState |> D.decodeValue stateDecoder |> Result.withDefault initialState
     in
     ( { pos = pos
@@ -88,6 +89,7 @@ init { maybeState, resources, windowSize, url } =
       , fullscreen = False
       , enabled = True
       , lastLeveledUpDate = lastLeveledUpDate
+      , volume = volume
       }
     , Cmd.none
     )
@@ -177,6 +179,12 @@ update msg model =
                 )
             else
                 ( model, Cmd.none )
+
+        SetVolume volume ->
+            let newModel =
+                    { model | volume = volume }
+            in
+            ( newModel, Ports.requestSave newModel )
 
 
 canLevelUp : Posix -> { a | lastLeveledUpDate : Posix } -> Bool
@@ -418,9 +426,7 @@ view model =
             [ cssUnset []
             ]
             [ Yippee.view model.resources model |> Html.Styled.map YippeeMsg
-            , viewAppleButton model
-            , viewHappinessBar model
-            , viewLevel model
+            , viewBottomLeft model
             , Confetti.view model.confetti |> Html.map ConfettiMsg |> Html.Styled.fromUnstyled
             , div [ cssUnset [] ] (List.map viewSound model.sounds)
             , div [ cssUnset [] ] (List.map (viewApple model.resources) model.apples)
@@ -443,32 +449,60 @@ viewApple { appleUrl } { pos, rotation } =
         []
 
 
-viewAppleButton : Model -> Html Msg
-viewAppleButton { resources, windowSize, fullscreen } =
-    let
-        moveAway bool =
-            transform
-                (translateX <|
-                    pct <|
-                        if bool then
-                            80
+moveRight : Bool -> Style
+moveRight bool =
+    transform
+        (translateX <|
+            pct <|
+                if bool then
+                    80
 
-                        else
-                            0
-                )
-    in
+                else
+                    0
+        )
+
+viewBottomLeft : Model -> Html Msg
+viewBottomLeft model =
     div
         [ cssUnset
-            [ border3 (px 0) solid dark
+            [ border3 (px 2) solid dark
             , position fixed
             , bottom (px 0)
             , right (px 0)
-            , moveAway fullscreen
-            , hover [ moveAway False ]
+            , moveRight model.fullscreen
+            , hover [ moveRight False ]
             , transition [ Css.Transitions.transform3 300 0 easeInOut ]
             , padding (px 8)
             , backgroundColor white
             , opacity (num 0.9)
+            , boxSizing borderBox
+            , displayFlex
+            , flexDirection row
+            , minWidth fitContent
+            , maxWidth fitContent
+            ]
+        ]
+        [ viewAppleButton model
+        , div
+            [ cssUnset
+                [ displayFlex
+                , flexDirection column
+                , justifyContent center
+                ]
+            ]
+            [ viewHappinessBar model
+            , viewLevel model
+            ]
+        ]
+
+
+viewAppleButton : Model -> Html Msg
+viewAppleButton { resources, windowSize } =
+    div
+        [ cssUnset
+            [ display block
+            , border3 (px 0) solid dark
+            , backgroundColor white
             , boxSizing borderBox
             , Css.height (px 60)
             , Css.width (px 60)
@@ -496,13 +530,11 @@ viewBar name fill =
         , Html.Styled.Attributes.min "0"
         , Html.Styled.Attributes.max "1"
         , cssUnset
-            [ position fixed
-            , bottom (px 0)
-            , right (px 60)
-            , myFontStyleDark
+            [ myFontStyleDark
             , backgroundColor gray
             , Css.height (px 30)
             , Css.width (px 120)
+            , position relative
             ]
         ]
         [ div
@@ -533,10 +565,7 @@ viewLevel : { a | level : Int } -> Html Msg
 viewLevel { level } =
     div
         [ cssUnset
-            [ position fixed
-            , bottom (px 30)
-            , right (px 60)
-            , myFontStyleDark
+            [ myFontStyleDark
             , backgroundColor gray
             , Css.height (px 30)
             , Css.width (px 120)
@@ -572,6 +601,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ Ports.frame Frame
+        , Browser.Events.onAnimationFrame
         , Ports.saveDone (\_ -> SaveDone)
         , Ports.mouseMove MouseMove
         , onResize WindowResize
@@ -583,4 +613,5 @@ subscriptions model =
                 D.decodeValue stateDecoder state
                     |> LoadState
             )
+        , Ports.setVolume SetVolume
         ]

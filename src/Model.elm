@@ -24,6 +24,7 @@ type alias State a =
         { a
             | mousePos : Vec
             , apples : List Apple
+            , volume : Float
         }
 
 
@@ -60,7 +61,7 @@ type alias Vec =
 
 
 encodeState : State a -> E.Value
-encodeState ({ pos, targetPos, flipped, apples, mousePos, focusPos, happiness, level, jump, lastLeveledUpDate } as state) =
+encodeState ({ pos, targetPos, flipped, apples, mousePos, focusPos, happiness, level, jump, lastLeveledUpDate, volume } as state) =
     E.object
         [ ( "pos", encodeVec pos )
         , ( "targetPos", encodeVec targetPos )
@@ -72,6 +73,7 @@ encodeState ({ pos, targetPos, flipped, apples, mousePos, focusPos, happiness, l
         , ( "level", E.int level )
         , ( "jump", E.float jump )
         , ( "lastLeveledUpDate", E.int <| posixToMillis lastLeveledUpDate )
+        , ( "volume", E.float volume )
         ]
 
 
@@ -103,6 +105,7 @@ initialState =
     , apples = []
     , jump = 0
     , lastLeveledUpDate = millisToPosix 0
+    , volume = 0.5
     }
 
 stateDecoder : D.Decoder (State {})
@@ -118,6 +121,7 @@ stateDecoder =
     |> DD.andMap (D.field "level" D.int |> DD.withDefault 0)
     |> DD.andMap (D.field "jump" D.float)
     |> DD.andMap (D.field "lastLeveledUpDate" D.int |> DD.withDefault 0 |> D.map millisToPosix)
+    |> DD.andMap (D.field "volume" D.float |> DD.withDefault 0.5)
 
 
 appleDecoder : D.Decoder Apple
@@ -134,8 +138,8 @@ vecDecoder =
     D.map2 Vec (D.field "x" D.float) (D.field "y" D.float)
 
 
-makeState : Vec -> Vec -> Vec -> Vec -> Bool -> List Apple -> Float -> Int -> Float -> Posix -> State {}
-makeState pos targetPos focusPos mousePos flipped apples happiness level jump lastLeveledUpDate =
+makeState : Vec -> Vec -> Vec -> Vec -> Bool -> List Apple -> Float -> Int -> Float -> Posix -> Float -> State {}
+makeState pos targetPos focusPos mousePos flipped apples happiness level jump lastLeveledUpDate volume =
     { pos = pos
     , targetPos = targetPos
     , focusPos = focusPos
@@ -146,4 +150,5 @@ makeState pos targetPos focusPos mousePos flipped apples happiness level jump la
     , level = level
     , jump = jump
     , lastLeveledUpDate = lastLeveledUpDate
+    , volume = volume
     }

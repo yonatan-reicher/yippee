@@ -79,6 +79,8 @@ loadState()
         chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (message.type === 'enable-disable') {
                 elm.ports.enableDisable.send(null)
+            } else if (message.type === 'set-volume') {
+                elm.ports.setVolume.send(message.volume)
             }
         })
 
