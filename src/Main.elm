@@ -155,7 +155,7 @@ update msg model =
         Delayed cont seconds ->
             ( model, delay seconds cont )
 
-        LoadState (Ok { pos, targetPos, focusPos, mousePos, flipped, apples, happiness, jump }) ->
+        LoadState (Ok { pos, targetPos, focusPos, mousePos, flipped, apples, happiness, jump, lastLeveledUpDate, volume }) ->
             ( { model
                 | pos = pos
                 , targetPos = targetPos
@@ -165,6 +165,8 @@ update msg model =
                 , apples = apples
                 , happiness = happiness
                 , jump = jump
+                , lastLeveledUpDate = lastLeveledUpDate
+                , volume = volume
               }
             , Cmd.none
             )
@@ -182,7 +184,7 @@ update msg model =
 
         SetVolume volume ->
             let newModel =
-                    { model | volume = volume }
+                    { model | volume = volume |> Debug.log "Set volume to:" }
             in
             ( newModel, Ports.requestSave newModel )
 
@@ -502,6 +504,7 @@ viewAppleButton { resources, windowSize } =
         [ cssUnset
             [ display block
             , border3 (px 0) solid dark
+            , padding (px 8)
             , backgroundColor white
             , boxSizing borderBox
             , Css.height (px 60)
@@ -601,7 +604,6 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ Ports.frame Frame
-        , Browser.Events.onAnimationFrame
         , Ports.saveDone (\_ -> SaveDone)
         , Ports.mouseMove MouseMove
         , onResize WindowResize
@@ -612,6 +614,7 @@ subscriptions model =
             (\state ->
                 D.decodeValue stateDecoder state
                     |> LoadState
+                    |> Debug.log "Loading state"
             )
         , Ports.setVolume SetVolume
         ]

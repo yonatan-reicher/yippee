@@ -55,7 +55,10 @@ loadState()
             // Calculate delta time and cut off after half a second.
             const delta = clamp(time - prevTime, 0, 0.5);
 
-            elm.ports.frame.send({delta, time});
+            // Only send the delta if the tab is active.
+            if (document.visibilityState === "visible") {
+                elm.ports.frame.send({delta, time});
+            }
 
             prevTime = time;
             window.requestAnimationFrame(loop);
@@ -64,8 +67,11 @@ loadState()
         window.requestAnimationFrame(loop);
 
         elm.ports.requestSave1.subscribe(model => {
-            chrome.storage.local.set({[modelKey]: model})
-                .then(_ => elm.ports.saveDone.send(null))
+            // Only save the data if the tab is active.
+            if (document.visibilityState === "visible") {
+                chrome.storage.local.set({[modelKey]: model})
+                    .then(_ => elm.ports.saveDone.send(null))
+            }
         })
 
         body.addEventListener('mousemove', event => {

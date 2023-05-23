@@ -73,7 +73,7 @@ encodeState ({ pos, targetPos, flipped, apples, mousePos, focusPos, happiness, l
         , ( "level", E.int level )
         , ( "jump", E.float jump )
         , ( "lastLeveledUpDate", E.int <| posixToMillis lastLeveledUpDate )
-        , ( "volume", E.float volume )
+        , ( "volume", E.float (Debug.log "Saving volume to:" volume) )
         ]
 
 
