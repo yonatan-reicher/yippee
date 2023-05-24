@@ -1,4 +1,4 @@
-port module Ports exposing (frame, mouseMove, requestSave, saveDone, playSound, onFullscreenChange, enableDisable, loadState, setVolume)
+port module Ports exposing (frame, mouseMove, requestSave, saveDone, playSound, onFullscreenChange, enableDisable, loadState, setVolume, cheat)
 
 import Json.Encode as E
 import Json.Decode as D
@@ -35,3 +35,6 @@ port loadState : (D.Value -> a) -> Sub a
 
 
 port setVolume : (Float -> a) -> Sub a
+
+
+port cheat : (() -> a) -> Sub a

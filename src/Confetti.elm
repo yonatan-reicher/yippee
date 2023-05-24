@@ -51,6 +51,18 @@ type Confetti
         { color : Color
         , length : Int
         }
+    | Heart 
+        { color : (Int, Int, Int)
+        , size : Float
+        , rotation : Float
+        }
+    | PlusOne
+        { color : (Int, Int, Int)
+        , size : Float
+        , rotation : Float
+        }
+
+
 
 
 type Color
@@ -59,6 +71,54 @@ type Color
     | Yellow
     | Green
     | Blue
+
+
+genRed : Generator (Int, Int, Int)
+genRed =
+    Random.map3
+        (\red green blue -> (red, green, blue))
+        (normal 200 40 |> Random.map round)
+        (normal 60 10 |> Random.map round)
+        (normal 50 10 |> Random.map round)
+
+
+genGreen : Generator (Int, Int, Int)
+genGreen =
+    Random.map3
+        (\red green blue -> (red, green, blue))
+        (Random.float 100 150 |> Random.map round)
+        (normal 210 40 |> Random.map round)
+        (normal 50 10 |> Random.map round)
+
+
+genHeart : Generator Confetti
+genHeart =
+    Random.map3
+        (\color size rotation -> 
+            Heart
+                { color = color
+                , size = size
+                , rotation = rotation
+                }
+        )
+        genRed
+        (Random.float 1.5 2.5)
+        (Random.float 0 1)
+
+
+genPlusOne : Generator Confetti
+genPlusOne =
+    Random.map3
+        (\color size rotation -> 
+            PlusOne
+                { color = color
+                , size = size
+                , rotation = rotation
+                }
+        )
+        genGreen
+        (normal 1.2 0.2)
+        (normal 0 0.01)
 
 
 {-| Generate a confetti square, using the color ratios seen in Mutant Standard.
@@ -111,8 +171,8 @@ genConfetti =
 {-| We're going to emit particles at the mouse location, so we pass those
 parameters in here and use them without modification.
 -}
-particleAt : Float -> Float -> Generator (Particle Confetti)
-particleAt x y =
+confettiAt : Float -> Float -> Generator (Particle Confetti)
+confettiAt x y =
     Particle.init genConfetti
         |> Particle.withLifetime (normal 1.5 0.25)
         |> Particle.withLocation (Random.constant { x = x, y = y })
@@ -129,6 +189,9 @@ particleAt x y =
 
                         Streamer _ ->
                             0.85
+
+                        Heart _ -> 1 -- Impossible
+                        PlusOne _ -> 1 -- Impossible
                 , area =
                     case confetti of
                         Square _ ->
@@ -136,8 +199,33 @@ particleAt x y =
 
                         Streamer { length } ->
                             toFloat length / 10
+
+                        Heart _ -> 1 -- Impossible
+                        PlusOne _ -> 1 -- Impossible
                 }
             )
+
+
+genHeartOrPlusOne : Generator Confetti
+genHeartOrPlusOne =
+    Random.Extra.frequency
+        ( 0.7, genHeart )
+        [ ( 0.3, genPlusOne ) ]
+
+
+heartsAt : Float -> Float -> Generator (Particle Confetti)
+heartsAt x y =
+    Particle.init genHeartOrPlusOne
+        |> Particle.withLifetime (normal 2.5 0.35)
+        |> Particle.withLocation
+            (Random.map2 
+                (\movedX movedY -> { x = movedX, y = movedY })
+                (normal x 50)
+                (normal y 20)
+            )
+        |> Particle.withDirection (Random.constant 0)
+        |> Particle.withSpeed (normal 100 50)
+        |> Particle.withGravity -20
 
 
 type alias Model =
@@ -146,15 +234,21 @@ type alias Model =
 
 
 type Msg
-    = TriggerBurst Float Float
+    = TriggerConfetti Float Float
+    | TriggerHearts Float Float
     | ParticleMsg (System.Msg Confetti)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        TriggerBurst x y ->
-            ( { model | system = System.burst (Random.list 100 (particleAt x y)) model.system }
+        TriggerConfetti x y ->
+            ( { model | system = System.burst (Random.list 100 (confettiAt x y)) model.system }
+            , Cmd.none
+            )
+
+        TriggerHearts x y ->
+            ( { model | system = System.burst (Random.list 20 (heartsAt x y)) model.system }
             , Cmd.none
             )
 
@@ -256,6 +350,51 @@ viewConfetti particle =
                 ]
                 []
 
+        Heart { color, size, rotation } -> 
+            Svg.path
+                [ SAttrs.d <| heartPath
+                , SAttrs.fill (fillTuple color)
+                , SAttrs.stroke "black"
+                , SAttrs.strokeWidth "2px"
+                , SAttrs.opacity <| String.fromFloat opacity
+                , SAttrs.transform <|
+                    "rotate("
+                        ++ String.fromFloat (rotation * 360)
+                        ++ ") scale("
+                        ++ String.fromFloat size
+                        ++ ")"
+                ]
+                []
+
+
+        PlusOne { color, size, rotation } -> 
+            Svg.text_
+                [ SAttrs.x "0"
+                , SAttrs.y "0"
+                , SAttrs.fill (fillTuple color)
+                , SAttrs.stroke (fillTuple color)
+                , SAttrs.strokeWidth "2.5px"
+                , SAttrs.opacity <| String.fromFloat opacity
+                , SAttrs.transform <|
+                    "rotate("
+                        ++ String.fromFloat (rotation * 360)
+                        ++ ") scale("
+                        ++ String.fromFloat size
+                        ++ ")"
+                ]
+                [ Svg.text "+1" ]
+
+
+heartPath : String
+heartPath =
+    """
+    M 1,3
+    A 2,2 0,0,1 5,3
+    A 2,2 0,0,1 9,3
+    Q 9,6 5,9
+    Q 1,6 1,3 z
+    """
+
 
 fill : Color -> String
 fill color =
@@ -274,6 +413,11 @@ fill color =
 
         Blue ->
             "#37CBE8"
+
+
+fillTuple : (Int, Int, Int) -> String
+fillTuple (r, g, b) =
+    "rgb(" ++ String.fromInt r ++ "," ++ String.fromInt g ++ "," ++ String.fromInt b ++ ")"
 
 
 

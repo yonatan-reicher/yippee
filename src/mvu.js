@@ -87,6 +87,8 @@ loadState()
                 elm.ports.enableDisable.send(null)
             } else if (message.type === 'set-volume') {
                 elm.ports.setVolume.send(message.volume)
+            } else if (message.type === 'cheat') {
+                elm.ports.cheat.send(null)
             }
         })
 

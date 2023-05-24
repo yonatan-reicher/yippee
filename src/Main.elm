@@ -20,7 +20,7 @@ import Random exposing (generate)
 import Random.Float
 import Task
 import Yippee
-import Time exposing (Posix, now, posixToMillis)
+import Time exposing (Posix, now, posixToMillis, millisToPosix)
 
 
 type Msg
@@ -42,6 +42,7 @@ type Msg
     | LoadState (Result D.Error (State {}))
     | OnFullHappiness Posix
     | SetVolume Float
+    | Cheat
 
 
 type alias FrameData a =
@@ -131,7 +132,7 @@ update msg model =
         SpawnConfetti ->
             let
                 cmsg =
-                    Confetti.TriggerBurst model.pos.x (model.windowSize.y - model.pos.y)
+                    Confetti.TriggerConfetti model.pos.x (model.windowSize.y - model.pos.y)
             in
             update (ConfettiMsg cmsg) model
 
@@ -176,23 +177,32 @@ update msg model =
 
         OnFullHappiness time ->
             if canLevelUp time model then
-                ( { model | level =  model.level + 1, lastLeveledUpDate = time }
-                , Cmd.none
-                )
+                { model | level = model.level + 1, lastLeveledUpDate = time }
+                |> update
+                    (ConfettiMsg
+                        (Confetti.TriggerHearts
+                            model.pos.x
+                            (model.windowSize.y - model.pos.y)
+                            )
+                        )
             else
                 ( model, Cmd.none )
 
         SetVolume volume ->
             let newModel =
-                    { model | volume = volume |> Debug.log "Set volume to:" }
+                    { model | volume = volume }
             in
             ( newModel, Ports.requestSave newModel )
+
+        Cheat ->
+            ( { model | lastLeveledUpDate = millisToPosix 0 }, Cmd.none )
 
 
 canLevelUp : Posix -> { a | lastLeveledUpDate : Posix } -> Bool
 canLevelUp now { lastLeveledUpDate } =
-    -- Only if ate more than 20 hours ago.
-    posixToMillis now - posixToMillis lastLeveledUpDate > 20 * 60 * 60 * 1000
+    -- Only if ate more than 2 hours ago.
+    let hour = 60 * 60 * 1000 in
+    posixToMillis now - posixToMillis lastLeveledUpDate > 2 * hour
 
 
 frame : FrameData a -> Model -> ( Model, Cmd Msg )
@@ -428,7 +438,7 @@ view model =
             [ cssUnset []
             ]
             [ Yippee.view model.resources model |> Html.Styled.map YippeeMsg
-            , viewBottomLeft model
+            , viewBottomRight model
             , Confetti.view model.confetti |> Html.map ConfettiMsg |> Html.Styled.fromUnstyled
             , div [ cssUnset [] ] (List.map viewSound model.sounds)
             , div [ cssUnset [] ] (List.map (viewApple model.resources) model.apples)
@@ -453,18 +463,14 @@ viewApple { appleUrl } { pos, rotation } =
 
 moveRight : Bool -> Style
 moveRight bool =
-    transform
-        (translateX <|
-            pct <|
-                if bool then
-                    80
+    if bool then
+        Css.property "transform" "translateX(calc(100% - 10px))"
 
-                else
-                    0
-        )
+    else
+        Css.property "transform" "translateX(0)"
 
-viewBottomLeft : Model -> Html Msg
-viewBottomLeft model =
+viewBottomRight : Model -> Html Msg
+viewBottomRight model =
     div
         [ cssUnset
             [ border3 (px 2) solid dark
@@ -476,7 +482,7 @@ viewBottomLeft model =
             , transition [ Css.Transitions.transform3 300 0 easeInOut ]
             , padding (px 8)
             , backgroundColor white
-            , opacity (num 0.9)
+            , opacity (num 0.98)
             , boxSizing borderBox
             , displayFlex
             , flexDirection row
@@ -614,7 +620,7 @@ subscriptions model =
             (\state ->
                 D.decodeValue stateDecoder state
                     |> LoadState
-                    |> Debug.log "Loading state"
             )
         , Ports.setVolume SetVolume
+        , Ports.cheat (\() -> Cheat)
         ]
