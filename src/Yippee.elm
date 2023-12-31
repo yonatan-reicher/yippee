@@ -65,7 +65,7 @@ view { yippeeUrl } { pos, flipped, jump, happiness } =
         , onClick Clicked
         , cssUnset
             [ width <| px <| lerp minWidth maxWidth (happiness / maxHappiness)
-            , screenPosition { x = pos.x, y = pos.y + 200 * (1 - (2 * jump - 1) ^ 2 |> Basics.max 0) }
+            , screenPosition { x = pos.x, y = pos.y + 400 * (1 - (2 * jump - 1) ^ 2 |> Basics.max 0) }
             , opacity (num 0.95)
             , transition
                 [ Css.Transitions.transform3 transformTransitionTime 0 easeInOut
